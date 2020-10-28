@@ -1233,7 +1233,7 @@ fetch = Entrez.efetch(
 )
 
 dataNRPS = fetch.read()
-with open("fungal_NRPS.fa", 'w') as f:
+with open("fungalNRPS.fa", 'w') as f:
     f.write(dataNRPS)
     fetch.close()
 
@@ -1243,11 +1243,10 @@ A7R = Bio.Seq.Seq("ANGTCNCCNGTNCGGTA")
 A3Frc = Bio.Seq.Seq("CCNGANGTGTANATNNNGTANG")
 A7Rrc = Bio.Seq.Seq("TACCGNACNGGNGACNT")
 ## or for regex
-
-A3Frg = "C.TAC...AT.TACAC.TC.GG"
-A7Rrg = "A.GTC.CC.GT.CGGTA"
-A3Frgrc = "CC.GA.GTGTA.AT...GTA.G"
-A7Rrgrc = "TACCG.AC.GG.GAC.T"
+A3Frg="C.TAC...AT.TACAC.TC.GG"
+A7Rrg="A.GTC.CC.GT.CGGTA"
+A3Frgrc="CC.GA.GTGTA.AT...GTA.G"
+A7Rrgrc="TACCG.AC.GG.GAC.T"
 
 ## can we open this directly as a set of seqs?
 
@@ -1256,7 +1255,7 @@ matchsNRPS_forwardPrime = list()
 matchsNRPS_forwardPrime_RC = list()
 matchsNRPS_reversePrime = list()
 matchsNRPS_reversePrime_RC = list()
-for i in SeqIO.parse("fungal_NRPS.fa", "fasta"): 
+for i in SeqIO.parse("fungalNRPS.fa", "fasta"): 
     ## forward A3F
     forwardPrime = re.search(A3Frg, str(i.seq))
     if forwardPrime: 
@@ -1278,8 +1277,10 @@ for i in SeqIO.parse("fungal_NRPS.fa", "fasta"):
         matchsNRPS_reversePrime_RC.append(reversePrim_RC.group(0))
         fungalRecords.append(i.description)
 
-len(fungalRecords)
-len(set(fungalRecords)) ## two repeats...so not a lot of complete primer pairs to work with. 
+len(fungalRecords) ## 42
+len(set(fungalRecords)) ## 40, so only 2 with both primers?
+## =two repeats...so not a lot of complete primer pairs to work with. 
+## 42 out of 294 records ~14%, Compare this to bacteria...
 
 len(record["IdList"])
 
@@ -1325,9 +1326,7 @@ matchsNRPS_forwardPrime = list()
 matchsNRPS_forwardPrime_RC = list()
 matchsNRPS_reversePrime = list()
 matchsNRPS_reversePrime_RC = list()
-
 ## BiodiversityGenomics
-
 for i in SeqIO.parse("bactNRPS.fa", "fasta"): 
     ## forward A3F
     forwardPrime = re.search(A3Frg, str(i.seq))
@@ -1337,12 +1336,12 @@ for i in SeqIO.parse("bactNRPS.fa", "fasta"):
     ## forward A3F, reverse comp
     forwardPrime_RC = re.search(A3Frgrc, str(i.seq))
     if forwardPrime_RC: 
-        matchsNRPS_forwardPrime_RC.append(forwardPrime.group(0))
+        matchsNRPS_forwardPrime_RC.append(forwardPrime_RC.group(0))
         bacterialRecords.append(i.description)
     ## reverse A7R primer
     reversePrim = re.search(A7Rrg, str(i.seq))
     if reversePrim: 
-        matchsNRPS_reversePrime.append(reversePrim_RC.group(0))
+        matchsNRPS_reversePrime.append(reversePrim.group(0))
         bacterialRecords.append(i.description)
     ## reverse A7R primer, reverse comp 
     reversePrim_RC = re.search(A7Rrgrc, str(i.seq))
@@ -1350,9 +1349,94 @@ for i in SeqIO.parse("bactNRPS.fa", "fasta"):
         matchsNRPS_reversePrime_RC.append(reversePrim_RC.group(0))
         bacterialRecords.append(i.description)
 
-bacterialRecords
+
+## definitely in there
+
+len(bacterialRecords) ## = 242
+len(set(bacterialRecords)) ## 203, 20% of total records. 
 
 matchsNRPS_forwardPrime
 matchsNRPS_forwardPrime_RC
 matchsNRPS_reversePrime
 matchsNRPS_reversePrime_RC
+
+## check plants:
+
+justPlantsNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="(non-ribosomal peptide synthetase) AND green plants[porgn:__txid33090] AND biomol_mRNA[Properties]",
+    idtype="acc",
+    retmax=1000,
+    usehistory="y",
+)
+
+record = Entrez.read(justPlantsNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("plantNRPS.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+
+plantRecords=list()
+matchsNRPS_forwardPrime = list()
+matchsNRPS_forwardPrime_RC = list()
+matchsNRPS_reversePrime = list()
+matchsNRPS_reversePrime_RC = list()
+for i in SeqIO.parse("plantNRPS.fa", "fasta"): 
+    ## forward A3F
+    forwardPrime = re.search(A3Frg, str(i.seq))
+    if forwardPrime: 
+        matchsNRPS_forwardPrime.append(forwardPrime.group(0))
+        plantRecords.append(i.description)
+    ## forward A3F, reverse comp
+    forwardPrime_RC = re.search(A3Frgrc, str(i.seq))
+    if forwardPrime_RC: 
+        matchsNRPS_forwardPrime_RC.append(forwardPrime.group(0))
+        plantRecords.append(i.description)
+    ## reverse A7R primer
+    reversePrim = re.search(A7Rrg, str(i.seq))
+    if reversePrim: 
+        matchsNRPS_reversePrime.append(reversePrim_RC.group(0))
+        plantRecords.append(i.description)
+    ## reverse A7R primer, reverse comp 
+    reversePrim_RC = re.search(A7Rrgrc, str(i.seq))
+    if reversePrim_RC: 
+        matchsNRPS_reversePrime_RC.append(reversePrim_RC.group(0))
+        plantRecords.append(i.description)
+
+len(plantRecords) ## 
+
+len(record["IdList"])
+
+matchsNRPS_forwardPrime
+matchsNRPS_forwardPrime_RC
+matchsNRPS_reversePrime
+matchsNRPS_reversePrime_RC
+
+## not picking up anything...
+## grep?
+
+grep $A3Frg plantNRPS.fa | wc -l
+grep $A7Rrg plantNRPS.fa | wc -l
+grep $A3Frgrc plantNRPS.fa | wc -l
+grep $A7Rrgrc plantNRPS.fa | wc -l
+
+## no evidence of plant use of these primers. 
+## then again, there were only 15 sequences...
+## they are probably mis-annotated by automated pipelines.
+
+## okay, what else do we need?
+
+## can we repeat the above, with PKS? 
+
