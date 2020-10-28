@@ -1440,3 +1440,49 @@ grep $A7Rrgrc plantNRPS.fa | wc -l
 
 ## can we repeat the above, with PKS? 
 
+############################# PKS ############################# 
+
+## now to repeat with PKS.
+
+## I get the impression this is a much larger family of enzymes
+## with more activity in plants...
+
+## I also wonder if there is a divide here between bacteria 
+## and fungi. the following search on genbank:
+
+(Polyketide Synthase[Protein Name] OR (Polyketide[All Fields] AND Synthase[All Fields])) 
+AND iterative[All Fields] AND (type I[Protein Name] OR type[All Fields])
+
+## in the protein database gives us 2,776 records for fungi,
+## and only 165 for bacteria. 
+
+## a better search might be:
+(((Polyketide Synthase) AND Type I) NOT Type II) NOT Type III 
+
+## how can we get nucleotide info for these, if it is avaiable?
+
+bactPKShandle = Entrez.esearch(db="nucleotide", 
+    term="(((Polyketide Synthase) AND Type I) NOT Type II) NOT Type III AND bacteria [ORGN]", 
+    idtype="acc",
+    retmax=1000,
+    usehistory="y",
+)
+ 
+record = Entrez.read(bactPKShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("bactPKS.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
