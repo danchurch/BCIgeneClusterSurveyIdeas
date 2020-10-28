@@ -1453,6 +1453,7 @@ grep $A7Rrgrc plantNRPS.fa | wc -l
 (Polyketide Synthase[Protein Name] OR (Polyketide[All Fields] AND Synthase[All Fields])) 
 AND iterative[All Fields] AND (type I[Protein Name] OR type[All Fields])
 
+
 ## in the protein database gives us 2,776 records for fungi,
 ## and only 165 for bacteria. 
 
@@ -1485,4 +1486,83 @@ dataNRPS = fetch.read()
 with open("bactPKS.fa", 'w') as f:
     f.write(dataNRPS)
     fetch.close()
+
+## our polyketide primers look like this:
+
+## KS [degKS2F.i (5′-GCIATGGAYCCICARCARMGIVT)
+## degKS2R.i (5′-GTICCIGTICCRTGISCYTCIAC)
+
+## so for general purpose biopython manipulation
+## sub out the non-GCAT bases:
+
+KS2Fraw = "GCIATGGAYCCICARCARMGIVT"
+KS2F = re.sub('[^GCAT]',".", KS2Fraw)
+
+KS2Fseq = Bio.Seq.Seq(KS2F) 
+KS2Fseq_RC = KS2Fseq.reverse_complement()
+KS2F_RC = str(KS2Fseq_RC)
+
+KS2Rraw = 'GTICCIGTICCRTGISCYTCIAC'
+KS2R = re.sub('[^GCAT]',"N", KS2Rraw)
+KS2Rseq = Bio.Seq.Seq(KS2R) 
+KS2Rseq_RC = KS2Rseq.reverse_complement()
+KS2R_RC = str(KS2Rseq_RC)
+
+## can we now peruse our bacterial PKS records with this?
+
+pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/bactPKS.fa'
+#os.path.isfile(pksfile)
+bactPKSRecords=list()
+matchPKS_forwardPrime = list()
+matchPKS_forwardPrime_RC = list()
+matchPKS_reversePrime = list()
+matchPKS_reversePrime_RC = list()
+for i in SeqIO.parse(pksfile, "fasta"): 
+    ## forward pks
+    forwardPrime = re.search(KS2F, str(i.seq))
+    if forwardPrime: 
+        matchPKS_forwardPrime.append(forwardPrime.group(0))
+        bactPKSRecords.append(i.description)
+
+    ## forward pks, reverse comp
+    forwardPrime_RC = re.search(KS2F_RC, str(i.seq))
+    if forwardPrime_RC: 
+        matchPKS_forwardPrime_RC.append(forwardPrime.group(0))
+        bactPKSRecords.append(i.description)
+    ## reverse pks primer
+    reversePrim = re.search(KS2R, str(i.seq))
+    if reversePrim: 
+        matchPKS_reversePrime.append(reversePrim_RC.group(0))
+        bactPKSRecords.append(i.description)
+    ## reverse pks primer, reverse comp 
+    reversePrim_RC = re.search(KS2R_RC, str(i.seq))
+    if reversePrim_RC: 
+        matchPKS_reversePrime_RC.append(reversePrim_RC.group(0))
+        bactPKSRecords.append(i.description)
+
+
+len(bactPKSRecords) ## 
+
+len(record["IdList"])
+
+matchPKS_forwardPrime
+matchPKS_forwardPrime_RC
+matchPKS_reversePrime
+matchPKS_reversePrime_RC
+
+## not finding. grep check 
+
+KS2F=GC.ATGGA.CC.CA.CA..G..T
+KS2F_RC=A..C..TG.TG.GG.TCCAT.GC
+KS2R=GT.CC.GT.CC.TG..C.TC.AC
+KS2R_RC=GT.GA.G..CA.GG.AC.GG.AC
+pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/bactPKS.fa'
+
+grep $KS2F $pksfile | wc -l ## 436
+
+grep $KS2F_RC $pksfile | wc -l ## 695
+grep $KS2R $pksfile | wc -l ## 389
+grep $KS2R_RC $pksfile | wc -l ## 492
+## definitely in there
+
 
