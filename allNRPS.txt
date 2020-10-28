@@ -1,0 +1,72 @@
+
+1. AASDH
+Official Symbol: AASDH and Name: aminoadipate-semialdehyde dehydrogenase [Homo sapiens (human)]
+Other Aliases: ACSF4, LYS2, NRPS1098, NRPS998
+Other Designations: beta-alanine-activating enzyme; 2-aminoadipic 6-semialdehyde dehydrogenase; acyl-CoA synthetase family member 4; non-ribosomal peptide synthetase 1098; non-ribosomal peptide synthetase 998
+Chromosome: 4; Location: 4q12
+Annotation: Chromosome 4 NC_000004.12 (56337687..56389418, complement)
+MIM: 614365
+ID: 132949
+
+2. sib1
+ferrichrome synthetase Sib1 [Schizosaccharomyces pombe (fission yeast)]
+Other Aliases: SPAC23G3.02c
+Other Designations: ferrichrome synthetase Sib1
+Chromosome: I
+Annotation: Chromosome I NC_003424.3 (854453..869704, complement)
+ID: 2541451
+
+3. nrp
+non-ribosomal peptide synthetase Nrp [Mycobacterium canettii CIPT 140010059]
+Other Aliases: MCAN_RS00565, MCAN_01041
+Other Designations: non-ribosomal peptide synthetase Nrp
+Annotation:  NC_015848.1 (113564..121102)
+ID: 45424066
+
+4. NFIA_055290
+nonribosomal peptide synthase, putative [Aspergillus fischeri NRRL 181]
+Other Aliases: NFIA_055290
+Other Designations: nonribosomal peptide synthase, putative
+Chromosome: Unknown
+ID: 4584592
+
+5. clbN
+colibactin non-ribosomal peptide synthetase ClbN [Klebsiella aerogenes]
+Other Aliases: EL280_RS08890, NCTC9735_01739
+Other Designations: colibactin non-ribosomal peptide synthetase ClbN
+Chromosome: 1
+ID: 56716957
+
+6. clbN
+colibactin non-ribosomal peptide synthetase ClbN [Citrobacter koseri ATCC BAA-895]
+Other Aliases: CKO_RS03810, CKO_00873
+Other Designations: colibactin non-ribosomal peptide synthetase ClbN
+Annotation:  NC_009792.1 (859228..863595)
+ID: 45135063
+
+7. PluDJC_RS11695
+amino acid adenylation domain-containing protein [Photorhabdus laumondii subsp. laumondii]
+Other Aliases: PluDJC_RS11695, PluDJC_11665
+Other Designations: amino acid adenylation domain-containing protein
+ID: 57254027
+
+8. Salbus254_RS29425
+amino acid adenylation domain-containing protein [Streptomyces albidoflavus]
+Other Aliases: Salbus254_RS29425, Salbus254_6001
+Other Designations: amino acid adenylation domain-containing protein
+ID: 57985713
+
+9. irp2
+yersiniabactin non-ribosomal peptide synthetase HMWP2 [Klebsiella aerogenes]
+Other Aliases: EL280_RS09080, NCTC9735_01771
+Other Designations: yersiniabactin non-ribosomal peptide synthetase HMWP2
+Chromosome: 1
+ID: 56716989
+
+10. irp2
+yersiniabactin non-ribosomal peptide synthetase HMWP2 [Citrobacter koseri ATCC BAA-895]
+Other Aliases: CKO_RS05375, CKO_01248
+Other Designations: yersiniabactin non-ribosomal peptide synthetase HMWP2
+Annotation:  NC_009792.1 (1212024..1218131, complement)
+ID: 45135367
+

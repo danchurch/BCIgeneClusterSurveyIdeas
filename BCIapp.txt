@@ -1,0 +1,1358 @@
+## let's take a look at the BCI tree census data
+
+## let's see if we can a geopandas df going...
+
+import pandas as pd
+import shapely as sh
+import geopandas as gpd
+import numpy as np
+import matplotlib.pyplot as plt
+import rasterio as rs
+import rasterio.plot as rsPlot
+import Bio
+from Bio import Entrez
+
+plt.ion()
+
+## think this is a tsv:
+
+censusPath = '/home/daniel/Documents/job_apps/panama/data/treeCensusData/PlotDataReport10-13-2020_1762275259.txt'
+BCItrees = pd.read_csv(censusPath, sep='\t')
+
+BCItrees.head()
+
+(BCItrees.Census == 7).all()
+
+## spatial data is in there, can we make that into a shapely points obj?
+
+BCIgdf = gpd.GeoDataFrame(
+    BCItrees, geometry=gpd.points_from_xy(BCItrees.PX, BCItrees.PY))
+
+## how does that look?
+BCIgdf.head()
+ 
+## great. Now what do we want?
+
+## we basically want a rank abundance curve...
+
+## we need to group by species, sum, and rank
+
+aa = BCIgdf.groupby(BCIgdf['Latin'])
+aa.agg(len) ## works. but a better way?
+aa.agg(np.size) ## also works. same, basically
+abundances = aa.agg(np.size)['Census'].copy() ## not that clever, but works.
+abundances.sort_values(ascending=False, inplace=True)
+
+
+## that worked...? sanity checks
+## there should be 10631 lines with Alseis blackiana
+(BCItrees.Latin == 'Alseis blackiana').sum() ## yup
+## there should be 10631 lines with Alseis blackiana
+abundances.tail()
+## Pterocarpus officinalis should be observed only once
+(BCItrees.Latin == 'Pterocarpus officinalis').sum() ## yup
+np.sum(abundances)
+BCIgdf.shape 
+
+## rank abundence plot:
+
+plt.close('all')
+xs = np.arange(0,len(abundances))
+plt.bar(xs, abundances)
+## give names:
+plt.bar(xs, abundances)
+plt.gca().set_xticks(xs)
+plt.gca().set_xticklabels(abundances.index, rotation=90)
+plt.gca().set_xlim(-0.5,10.5)
+plt.tight_layout()
+
+## zoom in
+plt.gca().set_xlim(0,10)
+
+
+
+
+##### generating map ##############
+
+## can we read in the nice hillshade tiff of the island?
+
+tifPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_ColoredShaded_Relief/BCI_ColoredShaded_Relief.tif'
+twfPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_ColoredShaded_Relief/BCI_ColoredShaded_Relief.tif'
+BCIrast = rs.open(tifPath)
+
+aa = BCIrast.read()
+
+help(rs.open)
+
+rsPlot.show(BCIrast)
+## that didn't work...
+
+plt.imshow(BCIrast)
+## that either 
+
+
+BCIrast = rs.open(tifPath, GEOREF_SOURCES='INTERNAL' )
+
+
+###################
+## not working. Some folks are saying try gdal, in BASH:
+gdal_translate -of GTiff BCI_ColoredShaded_Relief.tif BCI_georeff.tiff
+## that worked, fixed the above.
+###################
+
+tifPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_ColoredShaded_Relief/BCI_georeff.tiff'
+BCIrast = rs.open(tifPath)
+rsPlot.show(BCIrast)
+
+## that works. 
+## now can we add the points of a tree that we are interested in?
+
+abundances.head()
+
+## I like rubiaceae, so...
+
+aa = BCIgdf.groupby(BCIgdf['Latin'])
+faramea = aa.get_group('Faramea occidentalis')
+
+faramea.shape
+
+plt.close('all')
+
+fig, ax = plt.subplots(1,1)
+
+tifPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_ColoredShaded_Relief/BCI_georeff.tiff'
+BCIrast = rs.open(tifPath)
+
+ax=plt.gca()
+
+rsPlot.show(BCIrast)
+
+rsPlot.show(BCIrast)
+faramea.plot(color='red', ax=ax)
+
+## oops, that's not gonna work until figure out where the plot is, UTM-wise
+## we have this geojson:
+
+fig, ax = plt.subplots(1,1)
+
+BCI2020path='/home/daniel/Documents/job_apps/panama/data/GIS/Barro_Colorado_Island_20mx20m_Quadrants_-_Feature_Layer.geojson'
+BCI2020 = gpd.read_file(BCI2020path)
+
+BCI2020.crs
+## this is in lat/long 
+## reproject:
+## epsg code for 17n is 32617
+
+BCI2020.to_crs("EPSG:32617", inplace=True)
+
+rsPlot.show(BCIrast)
+ax = plt.gca()
+BCI2020.plot(ax=ax)
+
+## so how can we use this to plot our points?
+
+## we have this point from the website:
+## Latitude: 9.154300000000 Longitude: -79.846100000000 
+## is this the origin of our plot?
+
+origLL = sh.geometry.Point(-79.8461,9.1543)
+d = {'number':['zoop'], 'geometry':[origLL]}
+origDF = gpd.GeoDataFrame( d, crs="epsg:4326" )
+origDF.to_crs("EPSG:32617", inplace=True)
+
+plt.close('all')
+
+BCI2020.plot()
+ax=plt.gca()
+origDF.plot(ax=ax)
+
+## works. nope, that is not the origin, unless there are projection
+## issues here. 
+
+## anyway, this does not have to be perfect. Let's start by guessing the 
+## origin from the quadrant graphic we have:
+
+xa, ya = 625774, 1.01178*10**6
+## now can we convert our faramea points with this?
+faramea.set_geometry(gpd.points_from_xy(faramea.PX + xa, faramea.PY + ya), inplace=True)
+
+faramea.plot()
+
+## start over
+
+import pandas as pd
+import shapely as sh
+import geopandas as gpd
+import numpy as np
+import matplotlib.pyplot as plt
+import rasterio as rs
+import rasterio.plot as rsPlot
+import Bio.Seq 
+import os
+import re
+from Bio.Blast import NCBIWWW
+from Bio import Entrez
+from Bio import SeqIO
+from Bio.Align.Applications import MuscleCommandline
+Entrez.email = "danchurchthomas@gmail.com"
+plt.ion()
+
+tifPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_ColoredShaded_Relief/BCI_georeff.tiff'
+BCIrast = rs.open(tifPath)
+BCI2020path='/home/daniel/Documents/job_apps/panama/data/GIS/Barro_Colorado_Island_20mx20m_Quadrants_-_Feature_Layer.geojson'
+BCI2020 = gpd.read_file(BCI2020path)
+BCI2020.to_crs("EPSG:32617", inplace=True)
+censusPath = '/home/daniel/Documents/job_apps/panama/data/treeCensusData/PlotDataReport10-13-2020_1762275259.txt'
+BCItrees = pd.read_csv(censusPath, sep='\t')
+BCIgdf = gpd.GeoDataFrame(
+    BCItrees, geometry=gpd.points_from_xy(BCItrees.PX, BCItrees.PY))
+aa = BCIgdf.groupby(BCIgdf['Latin'])
+faramea = aa.get_group('Faramea occidentalis').copy()
+xa, ya = 625774, 1.01178*10**6
+faramea.set_geometry(gpd.points_from_xy(faramea.PX + xa, faramea.PY + ya), inplace=True)
+
+plt.close('all')
+rsPlot.show(BCIrast)
+ax = plt.gca()
+#BCI2020.plot(ax=ax)
+faramea.plot(ax=ax, color='red')
+
+## damn, it's everywhere. 
+
+## this paper has publically available transcriptomic data for six species. 
+https://doi.org/10.1111/mec.13999
+## these species have been studied quite a bit...maybe that will strengthen the case
+
+## what are they?
+
+Beilschmiedia pendula
+
+Virola surinamensis 
+Brosimum alicastrum 
+Eugenia nesiotica 
+Lacmellea panamensis 
+Dipteryx oleifera 
+
+"Eugenia nesiotica"
+
+## can we find these?
+
+## make a function:
+
+sp = 'Beilschmiedia pendula'
+colr = 'red'
+
+def showSpMap(sp, colr):
+    plt.close('all')
+    aa = BCIgdf.groupby(BCIgdf['Latin'])
+    spDF = aa.get_group(sp).copy()
+    xa, ya = 625774, 1.01178*10**6
+    spDF.set_geometry(gpd.points_from_xy(spDF.PX + xa, spDF.PY + ya), inplace=True)
+    rsPlot.show(BCIrast)
+    ax = plt.gca()
+    spDF.plot(ax=ax, color=colr)
+    ax.set_xlim(spDF.geometry.x.min()-50,spDF.geometry.x.max()+50)
+    ax.set_ylim(spDF.geometry.y.min()-50,spDF.geometry.y.max()+50)
+    plt.gcf().suptitle(sp)
+    plt.tight_layout()
+
+showSpMap(sp, colr)
+
+aa = [
+"Beilschmiedia pendula",
+"Brosimum alicastrum",
+"Dipteryx oleifera",
+"Eugenia nesiotica",
+"Lacmellea panamensis",
+"Virola surinamensis", 
+]
+
+
+plt.close('all')
+
+showSpMap(aa[0], 'blue')
+
+showSpMap(aa[1], 'green')
+
+showSpMap(aa[2], 'red')
+
+showSpMap(aa[3], 'black')
+
+showSpMap(aa[4], 'brown')
+
+showSpMap("Eugenia nesiotica", 'black')
+
+## huh. I think any of these will do...one of them was not covered ?
+## these were the ones covered by the Mangan et al 2010 study:
+
+Brosimum alicastrum
+Beilschmiedia pendula
+Eugenia nesiotica
+Lacmellea panamensis
+Tetragastris panamensis
+Virola surinamensis
+
+## looks like dipteryx is not here, instead we have Tetragastris..
+
+## so our options look like this:
+
+aa = [
+"Beilschmiedia pendula",
+"Brosimum alicastrum",
+"Eugenia nesiotica",
+"Lacmellea panamensis",
+"Virola surinamensis", 
+]
+
+plt.close('all')
+
+showSpMap(aa[0], 'blue')
+
+showSpMap(aa[1], 'green')
+
+showSpMap(aa[2], 'red')
+
+showSpMap(aa[3], 'black')
+
+showSpMap(aa[4], 'brown')
+
+## any of these have genomes?
+## Eugenia has one congeneric, E. uniflora. I think this is the brazilian cherry 
+## says there is a genome, but its only 3mb, can't be right. 
+## oh, there it is: 0.03x coverage. That's like zero coverage, but not  quite. 
+
+## okay, so stay with Eugenia for the moment...
+
+## what does a map for this look like?
+
+
+
+#########################################################################
+
+## work back a little...how long are these primers?
+
+## we need to know this, to see if illumina sequencing is possible with them...
+
+## then we can decide how many samples we need to achieve a mininum sequencing 
+## depth...
+
+
+## okay, so how do we get some sample NRPS and PKS ? 
+
+## for the NRPS enzyme, they use 
+A3F (5′-GCSTACSYSATSTACACSTCSGG)
+A7R (5′-SASGTCVCCSGTSCGGTA) 
+## from (Ayuso-Sacido and Genilloud, 2005)
+
+## and for PKS they use:
+KS (5′-GCIATGGAYCCICARCARMGIVT) 
+degKS2R.i (5′-GTICCIGTICCRTGISCYTCIAC)
+## from (Schirmer et al., 2005), sponge paper.
+
+## the Ayuso-Sacido paper has PKS type I primers, wonder why they didn't use these?
+## dunno. let's just follow their lead for the moment...
+
+## what next...we need some NRPS sequences to look at...
+
+## how can we get these? Seems like a job for genbank and biopython
+
+########## get some data from genbank ########
+
+## for starters, let's check ~100 sequences of NRPS adenylation domain
+## and see how these primers behave?
+
+Entrez.email = "danchurchthomas@gmail.com"
+
+## what do we need here? We need a set of NRPS to play with. How do we get this?
+allNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase adenylation domain", 
+#    retmax=7000,
+    idtype="acc",
+)
+allNRPSrecord = Entrez.read(allNRPShandle)
+allNRPSrecord['Count'] ## 6607
+allNRPSrecord['IdList']
+
+
+## how can we subset to just fungi?
+justFungiNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase adenylation domain AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=50,
+)
+justFungiNRPSrecord = Entrez.read(justFungiNRPShandle)
+justFungiNRPSrecord['Count'] ## far fewer, 54
+
+justFungiNRPSrecord['IdList'] 
+
+justFungiNRPSrecord
+
+
+## okay, now bacteria:
+justBacteriaNRPShandle = Entrez.esearch(db='nucleotide',
+    term="non-ribosomal peptide synthetase adenylation domain AND Bacteria [ORGN]", 
+    idtype="acc",
+    retmax=50,
+)
+justBacteriaNRPSrecord = Entrez.read(justBacteriaNRPShandle)
+justBacteriaNRPSrecord['Count'] ## lots, 6544
+justBacteriaNRPSrecord['IdList']
+
+## what is the difference here between nucleotide and gene?
+justFungiNRPShandle = Entrez.esearch(db="gene", 
+    term="non-ribosomal peptide synthetase adenylation domain AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=100,
+)
+justFungiNRPSrecord = Entrez.read(justFungiNRPShandle)
+justFungiNRPSrecord['Count'] ## huh, that's a lot more...538
+justFungiNRPSrecord['IdList'] ## these are not acession numbers...
+
+justBacteriaNRPShandle = Entrez.esearch(db="gene", 
+    term="non-ribosomal peptide synthetase adenylation domain AND bacteria [ORGN]", 
+    idtype="acc",
+    retmax=100,
+)
+justBacteriaNRPSrecord = Entrez.read(justBacteriaNRPShandle)
+
+justBacteriaNRPSrecord['Count'] ## dramatically less than the nucleotide database 1175
+
+## for kicks, look at plants?
+justPlantsNRPShandle = Entrez.esearch(db="gene", 
+    term="(non-ribosomal peptide synthetase adenylation domain) AND green plants[porgn:__txid33090]", 
+    idtype="acc",
+    retmax=100,
+)
+justPlantsNRPSrecord = Entrez.read(justPlantsNRPShandle)
+justPlantsNRPSrecord['Count'] ## just 3
+
+
+## 'gene' may be just genbank results, the hopefully well-curated gene sequences,
+## excluding the annotated chromosomes with automated matches etc. 
+## might be better to use...let's keep them...
+## we might consider randomizing our sample a bit. But I assumed there is a bit
+## of quality control built into the search algorithmns, in that the first 
+## matches are more likely to actually be NRPSes than later matches?
+## so keep these top 100 matches of each for now...
+
+## these can be downloaded from genbank?
+
+## for one record:
+handle = Entrez.efetch(db="gene", id="EU490707", rettype="gb", retmode="fasta")
+
+help(Entrez.esearch)
+`
+help(Entrez.efetch)
+
+## says ids can be comma separated lists, can these be literal lists in python?
+
+aa = justPlantsNRPSrecord['IdList'][0:3]
+
+aa = justFungiNRPSrecord['IdList'][0:3]
+
+handle = Entrez.efetch(db="gene", id=aa, rettype="gb", retmode="fasta")
+
+handle = Entrez.efetch(db="gene", id=aa, rettype="gb", retmode="text")
+
+print(handle.read())
+
+## this is working but not returning sequence data. Also, many don't seem to 
+## be NRPSes, even fungal. Think we need to use the nucleotide db to get this?
+## not sure if these IDs I have are unique
+
+bb = justPlantsNRPSrecord['IdList'][0]
+
+handle = Entrez.efetch(db="nucleotide", id=bb, rettype="gb", retmode="text")
+## is this the same gene as?
+handle2 = Entrez.efetch(db="gene", id=bb, rettype="gb", retmode="text")
+## nope. 
+## I think we need accession numbers
+
+## for one record:
+
+justFungiNRPShandle = Entrez.esearch(db="gene", 
+    term="non-ribosomal peptide synthetase adenylation domain AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=10,
+    retmode='text',
+)
+
+justFungiNRPSrecord = Entrez.read(justFungiNRPShandle)
+
+justFungiNRPSrecord
+
+print(handle2.read())
+
+## a classic efetch goes like this:
+handle = Entrez.efetch(db="nucleotide", id="EU490707", rettype="gb", retmode="text")
+
+## you start with an accession number. And dammit, esearch doesn't seem to return 
+## accession numbers. 
+## and NCBI is dropping the "GI" number system, which is what esearch returns. 
+## as usual, the API for NCBI is a mess.  
+
+## this is not going well...
+
+## okay, so maybe we can hope that they haven't totally phased out the 
+## GI numbers, and pipe our esearch results into an efetch  
+
+## or we can use the nucleotide results...:
+
+allNRPSrecord['IdList']
+
+## how can we download these? I think it would look like this:
+
+aa = Entrez.efetch(db="nucleotide", id=allNRPSrecord['IdList'], rettype="gb", retmode="text")
+
+## but let's wait to do that. Apparently there is a better way, by directly caching and piping
+## esearch results to efetch, detailed here:
+## http://biopython.org/DIST/docs/tutorial/Tutorial.html#sec%3Aentrez-webenv
+
+## so maybe this could be used for the gene database:
+allNRPShandle = Entrez.esearch(db="gene", 
+    term="non-ribosomal peptide synthetase adenylation domain", 
+    retmax=7000,
+    idtype="acc",
+    usehistory="y",
+)
+
+## gives us the usual info:
+allNRPSrecord = Entrez.read(allNRPShandle)
+allNRPSrecord['Count'] ## 6607
+allNRPSrecord['IdList']
+
+acc_list = allNRPSrecord["IdList"]
+count = int(allNRPSrecord["Count"])
+
+count == len(acc_list)
+
+## but also the additional variables:
+
+webenv = allNRPSrecord["WebEnv"]
+query_key = allNRPSrecord["QueryKey"]
+
+## try getting a few of these with efetch:
+
+fetch_handle = Entrez.efetch(
+    db="gene",
+    rettype="fasta",
+    retmode="text",
+    retmax=10,
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+data = fetch_handle.read()
+
+fetch_handle.close()
+
+with open('allNRPS.txt', 'w') as f:
+    f.write(data)
+
+## That's promising. But no sequence data.
+
+## the genes don't seem to return any sequence data
+## I guess the gene database is more focused on 
+## collating information about the role of the gene
+## and the various sequences associated with it,
+## genomic, mRNA etc.
+
+## seems like we're back to the nucleotide database here:
+
+## do one of adenylation domains:
+allNRPSADhandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase adenylation domain", 
+    retmax=7000,
+    idtype="acc",
+    usehistory="y",
+)
+allNRPSADrecord = Entrez.read(allNRPSADhandle)
+acc_list = allNRPSADrecord["IdList"]
+count = int(allNRPSADrecord["Count"])
+webenvAD = allNRPSADrecord["WebEnv"]
+query_keyAD = allNRPSADrecord["QueryKey"]
+fetchAD = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=10,
+    webenv=webenvAD,
+    query_key=query_keyAD,
+    idtype="acc",
+)
+dataAD = fetchAD.read()
+with open("ADfastas.txt", 'w') as f:
+    f.write(dataAD)
+fetchAD.close()
+
+## that looks good. how different does a less specific NRPS (no AD) 
+## search look? 
+
+allNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase", 
+    retmax=7000,
+    idtype="acc",
+    usehistory="y",
+)
+
+allNRPSrecord = Entrez.read(allNRPShandle)
+acc_list = allNRPSrecord["IdList"]
+count = int(allNRPSrecord["Count"])
+webenv = allNRPSrecord["WebEnv"]
+query_key = allNRPSrecord["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=10,
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("NRPSfastas.txt", 'w') as f:
+    f.write(dataNRPS)
+
+fetch.close()
+
+
+## problem, these don't divide by kingdom, which we will need for the 
+## writeup (one for fungi, one for bacteria, one for plants)
+
+## so new plan, get these individually by kingdom:
+
+justFungiNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=2500,
+)
+justFungiNRPSrecord = Entrez.read(justFungiNRPShandle)
+justFungiNRPSrecord['Count'] ## 2234 
+
+## bacteria - there are so many, let's take the first 50000
+justBactNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND bacteria [ORGN]", 
+    idtype="acc",
+    retmax=50000,
+)
+justBactNRPSrecord = Entrez.read(justBactNRPShandle)
+justBactNRPSrecord['Count'] ## 143457
+
+justPlantNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND green plants[porgn:__txid33090]", 
+    idtype="acc",
+    retmax=100,
+)
+justPlantNRPSrecord = Entrez.read(justPlantNRPShandle)
+justPlantNRPSrecord['Count'] ## 55
+justPlantNRPSrecord['IdList']
+## I'll need these to see if our primers pick up these 
+## hopefully they don't 
+
+## are our AD results included in these?
+
+pd.Series(allNRPSADrecord["IdList"]).isin(pd.Series(justBactNRPSrecord['IdList']))
+pd.Series(allNRPSADrecord["IdList"]).isin(pd.Series(justBactNRPSrecord['IdList'])).sum()
+pd.Series(allNRPSADrecord["IdList"]).isin(pd.Series(justBactNRPSrecord['IdList']))
+pd.Series(allNRPSADrecord["IdList"]).isin(pd.Series(justBactNRPSrecord['IdList'])).sum() 
+## about a third. makes sense, we downloaded about a third of the bacterial NRPS
+
+pd.Series(allNRPSADrecord["IdList"]).isin(pd.Series(justBactNRPSrecord['IdList'])).any()
+pd.Series(allNRPSADrecord["IdList"]).isin(pd.Series(justBactNRPSrecord['IdList'])).all()
+
+allNRPSADrecord["IdList"] 
+
+
+[ i in justBactNRPSrecord['IdList'] for i in allNRPSADrecord["IdList"] ]
+
+[ i in allNRPSADrecord["IdList"] for i in justBactNRPSrecord['IdList'] ]
+
+justBactNRPSrecord['IdList']
+
+allNRPSADrecord["IdList"] 
+
+## okay, so set up the downloads, one for each group. try the small ones first:
+
+## plants:
+justPlantNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND green plants[porgn:__txid33090]", 
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+justPlantNRPSrecord = Entrez.read(justPlantNRPShandle)
+
+
+acc_list = justPlantNRPSrecord["IdList"]
+count = int(justPlantNRPSrecord["Count"])
+webenv = justPlantNRPSrecord["WebEnv"]
+query_key = justPlantNRPSrecord["QueryKey"]
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(acc_list),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("PlantNRPSfastas.txt", 'w') as f:
+    f.write(dataNRPS)
+
+fetch.close()
+
+## and that results in a big damn file. just 55 sequences.
+## we are not going to be able to do this locally.
+
+## How about we build a small library of 100 sequences of bacteria and fungi each, 
+## play around with that?
+
+justBactNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND bacteria [ORGN]", 
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+justBactNRPSrecord = Entrez.read(justBactNRPShandle)
+
+webenv = justBactNRPSrecord["WebEnv"]
+query_key = justBactNRPSrecord["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(justBactNRPSrecord["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("BactAndFungiNRPSfastas.txt", 'w') as f:
+    f.write(dataNRPS)
+
+fetch.close()
+
+justFungiNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+justFungiNRPSrecord = Entrez.read(justFungiNRPShandle)
+webenv = justFungiNRPSrecord["WebEnv"]
+query_key = justFungiNRPSrecord["QueryKey"]
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(justFungiNRPSrecord["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+
+with open("BactAndFungiNRPSfastas.txt", 'a') as f:
+    f.write(dataNRPS)
+
+fetch.close()
+
+## make a local blastdb, search that for our primers
+## in BASH
+
+makeblastdb -in BactandFungi.fa -parse_seqids -dbtype prot
+
+## look for our primers:
+
+A3F=GCSTACSYSATSTACACSTCSGG
+A7R=SASGTCVCCSGTSCGGTA
+echo '> A3F' > 'nrpsPrimers.fa' 
+echo $A3F >> 'nrpsPrimers.fa'
+echo '> A7R' >> 'nrpsPrimers.fa'
+echo $A7R >> 'nrpsPrimers.fa'
+
+cat nrpsPrimers.fa
+
+blastn -query nrpsPrimers.fa -subject BactandFungi.fa -evalue 30000
+
+## reverse comp of A3F:
+CC.GA.GTGTA.AT...GTA.G
+
+grep GC.TAC...AT.TACAC.TC.GG BactandFungi.fa 
+
+grep GC.TAC...AT.TACAC.TC.GG BactandFungi.fa | wc -l
+
+grep CC.GA.GTGTA.AT...GTA.G BactandFungi.fa 
+
+grep CC.GA.GTGTA.AT...GTA.G BactandFungi.fa  | wc -l
+
+## 30 diff hits...
+## they are in there. why doesn't blast pick them up?
+
+## try with the Ns instead of the other ambiguous symbols: 
+
+A3F=GCNTACNNNATNTACACNTCNGG
+A7R=SASGTCVCCSGTSCGGTA
+echo '> A3F' > 'nrpsPrimers.fa' 
+echo $A3F >> 'nrpsPrimers.fa'
+echo '> A7R' >> 'nrpsPrimers.fa'
+echo $A7R >> 'nrpsPrimers.fa'
+blastn -query nrpsPrimers.fa -subject BactandFungi.fa -evalue 30000
+
+## nada...
+
+## let's align them, and look at them. using muscle:
+
+muscle -in BactandFungi.fa -out BactandFungiAligned.fa
+
+## failed. No diagnostics as to why.
+
+## sleep. Then try this with the AD domains...
+
+## awake: Let's get the AD domain info, start an alignment:
+
+## we want the same, ~100 of the bacterial, and as many fungal and
+## plant homologues as we can get:
+
+## plants
+justPlantNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND green plants[porgn:__txid33090]", 
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+record = Entrez.read(justPlantNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("B_F_P_NRPS_AD_fastas.txt", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## add bacteria
+justBactNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND bacteria [ORGN]",
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+record = Entrez.read(justBactNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("B_F_P_NRPS_AD_fastas.txt", 'a') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## add fungi
+justFungiNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="non-ribosomal peptide synthetase AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+record = Entrez.read(justFungiNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("B_F_P_NRPS_AD_fastas.txt", 'a') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## okay..255 sequences...are these easier to align for MUSCLE?
+
+mv B_F_P_NRPS_AD_fastas.txt B_F_P_NRPS_AD.fa
+
+muscle -in B_F_P_NRPS_AD.fa -out BactandFungi_aligned.afa -maxiters 2
+
+## these are all failing. If this continues, reduce the size. 
+
+## keeps "killing" the process, even when I make through an iteration. 
+
+## just to see, what happens with a tiny dataset?
+
+## first ten reads of this fasta? How to subset in biopython...
+
+ADparse = SeqIO.parse("B_F_P_NRPS_AD.fa", "fasta")
+
+AdparseL = list(ADparse)
+
+del(AdparseL)
+
+## first we'll see if we just need to reduce the size of the alignment:
+
+with open ('smallerFasta4Alignment.fa', "w") as f:
+    SeqIO.write(AdparseL[0:101], f, "fasta")
+
+## I think this excludes the fungi? so probably also makes the alignment easier
+
+
+## try again with alignment
+
+muscle -in smallerFasta4Alignment.fa  -out BactandFungi_aligned.afa -maxiters 2
+
+## while that is running, I think a better approach here is generate alignments 
+## for each of the three groups, fungi, plants, and bacteria. 
+
+## here we go again...
+
+## fungi
+justFungiNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="(non-ribosomal peptide synthetase) AND Fungi[Organism] AND biomol_mRNA[Properties]",
+    idtype="acc",
+    retmax=20,
+    usehistory="y",
+)
+
+record = Entrez.read(justFungiNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("fungiRPBS_AD.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+
+## plants
+
+justPlantsNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="(non-ribosomal peptide synthetase) AND green plants[porgn:__txid33090] AND biomol_mRNA[Properties]",
+    idtype="acc",
+    retmax=100,
+    usehistory="y",
+)
+
+record = Entrez.read(justPlantsNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("plantsRPBS_AD.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## bacteria. Not sure why, can't get mRNA, so limit length of sequences
+justBactNRPShandle = Entrez.esearch(db="nucleotide", 
+    #term="(non-ribosomal peptide synthetase) AND bacteria [ORGN] AND biomol_mRNA[Properties]", ## doesn't work, 0 results
+    term="(non-ribosomal peptide synthetase) AND bacteria [ORGN] AND (0[SLEN] : 20000[SLEN]))",
+    idtype="acc",
+    retmax=25,
+    usehistory="y",
+)
+
+record = Entrez.read(justBactNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("bactRPBS_AD.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## the plan would be, try these alignments 
+## then look for the existing primer sites
+## check length and diversity, report
+
+## the reduced dataset also failed, though it made it further, into the alignment 
+## stage....
+
+## let's try the fungal only file:
+
+muscle -in fungiRPBS_AD.fa  -out Fungi_AD_aligned.afa #-maxiters 2
+## that worked, with 20 sequences...
+muscle -in plantsRPBS_AD.fa  -out plantsNRPS_aligned.afa #-maxiters 2
+
+muscle -in bactRPBS_AD.fa  -out bactNRPs_aligned.afa #-maxiters 2
+
+## not sure, my acronyms got mixed up there a bit...
+
+GCNTACNNNATNTACACNTCNGG
+CCNGANGTGTANATNNNGTANGC
+NANGTCNCCNGTNCGGTA
+TACCGNACNGGNGACNTN
+
+A3F=GC.TAC...AT.TACAC.TC.GG
+A3Frc=CC.GA.GTGTA.AT...GTA.GC
+A7R=.A.GTC.CC.GT.CGGTA
+A7Rrc=TACCG.AC.GG.GAC.T.
+
+## check fungi with these
+grep $A3F fungiRPBS_AD.fa
+grep $A3Frc fungiRPBS_AD.fa
+grep $A7R fungiRPBS_AD.fa
+grep $A7Rrc fungiRPBS_AD.fa ## hit, 2
+
+grep $A3F bactRPBS_AD.fa
+grep $A3Frc bactRPBS_AD.fa ## hit
+grep $A7R bactRPBS_AD.fa ## hit
+grep $A7Rrc bactRPBS_AD.fa
+
+grep $A3F plantsRPBS_AD.fa
+grep $A3Frc plantsRPBS_AD.fa
+grep $A7R plantsRPBS_AD.fa
+grep $A7Rrc plantsRPBS_AD.fa
+
+
+## the following was for quickly testing the number of sequences 
+## number of seqs:
+ns = 5
+fa = 0
+infiles = ["plantsRPBS_AD.fa", "bactRPBS_AD.fa", "fungiRPBS_AD.fa"]
+shortfiles = ["plantsRPBS_AD_short.fa", "bactRPBS_AD_short.fa", "fungiRPBS_AD_short.fa"]
+outfiles = ["plantsRPBS_AD.afa", "bactRPBS_AD.afa", "fungiRPBS_AD.afa"]
+ADparse = SeqIO.parse(infiles[fa], "fasta")
+AdparseL = list(ADparse)
+## first we'll see if we just need to reduce the size of the alignment:
+with open (shortfiles[fa], "w") as f:
+    SeqIO.write(AdparseL[0:ns], f, "fasta")
+    #musc = MuscleCommandline(input=shortfiles[fa], out=outfiles[fa])
+    ## run the alignment from here? 
+    #musc()
+
+## not working to run in biopython...
+
+
+## looking at this, these are entire large scaffolds, and mRNA all mixed up.
+## we want to exclude scaffolds, chromosomes, etc...we need a gene based 
+## approach...
+########## blasting genbank #######
+
+## fuck all that for the moment... 
+## Instead, for the moment, we need to flip this on its head and blast 
+## genbank with these primers, see what results. 
+
+## how do we do this?
+
+
+NCBIWWW.qblast()
+
+## example from the documentation
+result_handle = NCBIWWW.qblast("blastn", "nt", "8332116")
+
+## to look for our primers:
+
+## for the NRPS enzyme, they use 
+
+A3F=Bio.Seq.Seq('GCSTACSYSATSTACACSTCSGG')
+A7R=Bio.Seq.Seq('SASGTCVCCSGTSCGGTA')
+
+checkNRPSfor = NCBIWWW.qblast("blastn", "nt", A3F)
+
+## yields nothing. probably because of all the ambiguity 
+## what if we replace these with N?
+
+## a good page for the ambiguous abbreviations:
+## https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Web&PAGE_TYPE=BlastDocs&DOC_TYPE=BlastHelp
+
+A3F  =   Bio.Seq.Seq('GCSTACSYSATSTACACSTCSGG')
+
+A3FNNN = Bio.Seq.Seq('GCNTACNNNATNTACACNTCNGG')
+
+checkNRPSfor = NCBIWWW.qblast("blastn", "nt", A3FNNN)
+
+## write this:
+
+with open("A3Fcheck.txt", "w") as out_handle:
+    out_handle.write(checkNRPSfor.read())
+
+result_handle.close()
+
+## not working...there are some tips on this page: 
+
+## https://eu.idtdna.com/pages/education/decoded/article/tips-for-using-blast-to-locate-pcr-primers
+
+A3FA7RN = Bio.Seq.Seq('GCNTACNNNATNTACACNTCNGGNNNNNNNNNNNNNNNNNNNNNNNANGTCNCCNGTNCGGTA')
+
+checkNRPSfor = NCBIWWW.qblast("blastn", "nt", A3FA7RN)
+
+## yeah that does nothing...hmmm...
+
+## seems like blasting primer sets just isn't going to work.
+
+## so skip that for now...
+
+## but we have other jobs for genbank. We need a list of useful metabolites to look for, 
+## so we can design primers. 
+## who am I kidding, I can't design primers. 
+
+## I want to see if our PKS and NRP
+
+## for each, say something interesting, list available literature and 
+## accessions/genomes,  find a primer set if available
+
+## for pathogen resistence, we were interested in antimicrobials. 
+
+## antifungals: 
+##   echinocandin (NRP lipopeptide, fungal origin)
+##   cyclosporing (cyclic NRP, fungal origin)
+##   polyenes (polyketide, bacterial origin, maybe also in Fungi?)
+##   strobilurins (polyketide, fungal origin, mostly basidios?)
+
+## for drought, antioxidents and osmolytes
+
+## drought & exposure
+##   fungal antioxidants:
+##    SOD, CAT
+##   fungal osmolytes:
+##    manitol?
+
+## anti-herbivory
+##   ergotamine
+##   other alkaloids?
+
+##  
+
+## change of plan - use targeted PCR tests for endophytes, and shotgun metagenomics for 
+## epiphytes and soil
+
+## how many samples? Kyle did ten... doesn't seem like much but they still used 
+## 21 lanes of hi-seq, jeezus, even at 8 lanes/run that thats 2.5 runs...
+
+## I think we will have to be a bit courser, given our budget. 
+
+## given our budget of $4000, I think we have to stick with metabarcoding + PCR
+## but incorporate epiphytes into the samples. Root and leaf washing, pelletizing,
+## DNA extraction. Targeted PCR of fungal and bacterial products of interest. 
+
+## need to get draft today. Plan:
+
+## 1 - set up massive searches of plant, fungal, bacterial for primers. Let them 
+## run.
+
+## 2 - write draft and budget for advisors
+
+####################################
+
+## 1 - set up searches for primers
+
+## basic idea 
+## 1) search and download LOTS of sequences from each category
+## 2) set them up as generators
+## 3) look for exact matches of our primers in each sequence, tally as you go
+
+
+## 
+## 1 Search and download sequences:
+
+## try method with a few fungal, then expand:
+justFungiNRPShandle = Entrez.esearch(db="nucleotide", 
+    term="(non-ribosomal peptide synthetase) AND Fungi[Organism] AND biomol_mRNA[Properties]",
+    idtype="acc",
+    retmax=1000,
+    usehistory="y",
+)
+
+record = Entrez.read(justFungiNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+# len(record["IdList"])
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("fungal_NRPS.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## identify our primers:
+A3F = Bio.Seq.Seq("CNTACNNNATNTACACNTCNGG")
+A7R = Bio.Seq.Seq("ANGTCNCCNGTNCGGTA")
+A3Frc = Bio.Seq.Seq("CCNGANGTGTANATNNNGTANG")
+A7Rrc = Bio.Seq.Seq("TACCGNACNGGNGACNT")
+## or for regex
+
+A3Frg = "C.TAC...AT.TACAC.TC.GG"
+A7Rrg = "A.GTC.CC.GT.CGGTA"
+A3Frgrc = "CC.GA.GTGTA.AT...GTA.G"
+A7Rrgrc = "TACCG.AC.GG.GAC.T"
+
+## can we open this directly as a set of seqs?
+
+fungalRecords=list()
+matchsNRPS_forwardPrime = list()
+matchsNRPS_forwardPrime_RC = list()
+matchsNRPS_reversePrime = list()
+matchsNRPS_reversePrime_RC = list()
+for i in SeqIO.parse("fungal_NRPS.fa", "fasta"): 
+    ## forward A3F
+    forwardPrime = re.search(A3Frg, str(i.seq))
+    if forwardPrime: 
+        matchsNRPS_forwardPrime.append(forwardPrime.group(0))
+        fungalRecords.append(i.description)
+    ## forward A3F, reverse comp
+    forwardPrime_RC = re.search(A3Frgrc, str(i.seq))
+    if forwardPrime_RC: 
+        matchsNRPS_forwardPrime_RC.append(forwardPrime.group(0))
+        fungalRecords.append(i.description)
+    ## reverse A7R primer
+    reversePrim = re.search(A7Rrg, str(i.seq))
+    if reversePrim: 
+        matchsNRPS_reversePrime.append(reversePrim_RC.group(0))
+        fungalRecords.append(i.description)
+    ## reverse A7R primer, reverse comp 
+    reversePrim_RC = re.search(A7Rrgrc, str(i.seq))
+    if reversePrim_RC: 
+        matchsNRPS_reversePrime_RC.append(reversePrim_RC.group(0))
+        fungalRecords.append(i.description)
+
+len(fungalRecords)
+len(set(fungalRecords)) ## two repeats...so not a lot of complete primer pairs to work with. 
+
+len(record["IdList"])
+
+matchsNRPS_forwardPrime
+matchsNRPS_forwardPrime_RC
+matchsNRPS_reversePrime
+matchsNRPS_reversePrime_RC
+
+## so these show some activity in fungi. How extensive, needs more time than I have. 
+
+## do this for bacteria:
+
+justBactNRPShandle = Entrez.esearch(db="nucleotide", 
+    #term="(non-ribosomal peptide synthetase) AND bacteria [ORGN] AND biomol_mRNA[Properties]", ## doesn't work, 0 results
+    term="(non-ribosomal peptide synthetase) AND bacteria [ORGN] AND (0[SLEN] : 20000[SLEN]))",
+    idtype="acc",
+    retmax=1000,
+    usehistory="y",
+)
+
+record = Entrez.read(justBactNRPShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+with open("bactNRPS.fa", 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+## now look through these:
+bacterialRecords=list()
+matchsNRPS_forwardPrime = list()
+matchsNRPS_forwardPrime_RC = list()
+matchsNRPS_reversePrime = list()
+matchsNRPS_reversePrime_RC = list()
+
+## BiodiversityGenomics
+
+for i in SeqIO.parse("bactNRPS.fa", "fasta"): 
+    ## forward A3F
+    forwardPrime = re.search(A3Frg, str(i.seq))
+    if forwardPrime: 
+        matchsNRPS_forwardPrime.append(forwardPrime.group(0))
+        bacterialRecords.append(i.description)
+    ## forward A3F, reverse comp
+    forwardPrime_RC = re.search(A3Frgrc, str(i.seq))
+    if forwardPrime_RC: 
+        matchsNRPS_forwardPrime_RC.append(forwardPrime.group(0))
+        bacterialRecords.append(i.description)
+    ## reverse A7R primer
+    reversePrim = re.search(A7Rrg, str(i.seq))
+    if reversePrim: 
+        matchsNRPS_reversePrime.append(reversePrim_RC.group(0))
+        bacterialRecords.append(i.description)
+    ## reverse A7R primer, reverse comp 
+    reversePrim_RC = re.search(A7Rrgrc, str(i.seq))
+    if reversePrim_RC: 
+        matchsNRPS_reversePrime_RC.append(reversePrim_RC.group(0))
+        bacterialRecords.append(i.description)
+
+bacterialRecords
+
+matchsNRPS_forwardPrime
+matchsNRPS_forwardPrime_RC
+matchsNRPS_reversePrime
+matchsNRPS_reversePrime_RC
