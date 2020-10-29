@@ -1402,7 +1402,7 @@ for i in SeqIO.parse("plantNRPS.fa", "fasta"):
     ## forward A3F, reverse comp
     forwardPrime_RC = re.search(A3Frgrc, str(i.seq))
     if forwardPrime_RC: 
-        matchsNRPS_forwardPrime_RC.append(forwardPrime.group(0))
+        matchsNRPS_forwardPrime_RC.append(forwardPrime_RC.group(0))
         plantRecords.append(i.description)
     ## reverse A7R primer
     reversePrim = re.search(A7Rrg, str(i.seq))
@@ -1441,7 +1441,6 @@ grep $A7Rrgrc plantNRPS.fa | wc -l
 ## can we repeat the above, with PKS? 
 
 ############################# PKS ############################# 
-
 ## now to repeat with PKS.
 
 ## I get the impression this is a much larger family of enzymes
@@ -1462,6 +1461,7 @@ AND iterative[All Fields] AND (type I[Protein Name] OR type[All Fields])
 
 ## how can we get nucleotide info for these, if it is avaiable?
 
+## bacteria
 bactPKShandle = Entrez.esearch(db="nucleotide", 
     term="(((Polyketide Synthase) AND Type I) NOT Type II) NOT Type III AND bacteria [ORGN]", 
     idtype="acc",
@@ -1483,7 +1483,9 @@ fetch = Entrez.efetch(
 )
 
 dataNRPS = fetch.read()
-with open("bactPKS.fa", 'w') as f:
+
+pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/bactPKS.fa'
+with open(pksfile, 'w') as f:
     f.write(dataNRPS)
     fetch.close()
 
@@ -1497,72 +1499,280 @@ with open("bactPKS.fa", 'w') as f:
 
 KS2Fraw = "GCIATGGAYCCICARCARMGIVT"
 KS2F = re.sub('[^GCAT]',".", KS2Fraw)
-
 KS2Fseq = Bio.Seq.Seq(KS2F) 
 KS2Fseq_RC = KS2Fseq.reverse_complement()
 KS2F_RC = str(KS2Fseq_RC)
-
 KS2Rraw = 'GTICCIGTICCRTGISCYTCIAC'
-KS2R = re.sub('[^GCAT]',"N", KS2Rraw)
+KS2R = re.sub('[^GCAT]',".", KS2Rraw)
 KS2Rseq = Bio.Seq.Seq(KS2R) 
 KS2Rseq_RC = KS2Rseq.reverse_complement()
 KS2R_RC = str(KS2Rseq_RC)
 
 ## can we now peruse our bacterial PKS records with this?
 
-pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/bactPKS.fa'
-#os.path.isfile(pksfile)
-bactPKSRecords=list()
-matchPKS_forwardPrime = list()
-matchPKS_forwardPrime_RC = list()
-matchPKS_reversePrime = list()
-matchPKS_reversePrime_RC = list()
+PKS_for = list()
+PKS_for_RC = list()
+PKS_rev = list()
+PKS_rev_RC = list()
 for i in SeqIO.parse(pksfile, "fasta"): 
     ## forward pks
-    forwardPrime = re.search(KS2F, str(i.seq))
-    if forwardPrime: 
-        matchPKS_forwardPrime.append(forwardPrime.group(0))
-        bactPKSRecords.append(i.description)
-
+    match_i = re.search(KS2F, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_for.append(bs)
     ## forward pks, reverse comp
-    forwardPrime_RC = re.search(KS2F_RC, str(i.seq))
-    if forwardPrime_RC: 
-        matchPKS_forwardPrime_RC.append(forwardPrime.group(0))
-        bactPKSRecords.append(i.description)
+    match_i = re.search(KS2F_RC, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_for_RC.append(bs)
     ## reverse pks primer
-    reversePrim = re.search(KS2R, str(i.seq))
-    if reversePrim: 
-        matchPKS_reversePrime.append(reversePrim_RC.group(0))
-        bactPKSRecords.append(i.description)
-    ## reverse pks primer, reverse comp 
-    reversePrim_RC = re.search(KS2R_RC, str(i.seq))
-    if reversePrim_RC: 
-        matchPKS_reversePrime_RC.append(reversePrim_RC.group(0))
-        bactPKSRecords.append(i.description)
+    match_i = re.search(KS2R, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_rev.append(bs)
+    # reverse pks primer, reverse comp 
+    match_i = re.search(KS2R_RC, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_rev_RC.append(bs)
 
 
-len(bactPKSRecords) ## 
+## now write these out as fastas:
+org = 'bact'
+SeqIO.write(PKS_for, str("PKS_for_"+org+".fa"), "fasta")
+SeqIO.write(PKS_for_RC, str("PKS_for_RC_"+org+".fa"), "fasta")
+SeqIO.write(PKS_rev, str("PKS_rev_"+org+".fa"), "fasta")
+SeqIO.write(PKS_rev_RC, str("PKS_rev_RC_"+org+".fa"), "fasta")
 
-len(record["IdList"])
+## not finding. 
 
-matchPKS_forwardPrime
-matchPKS_forwardPrime_RC
-matchPKS_reversePrime
-matchPKS_reversePrime_RC
-
-## not finding. grep check 
+### grep checks
 
 KS2F=GC.ATGGA.CC.CA.CA..G..T
 KS2F_RC=A..C..TG.TG.GG.TCCAT.GC
 KS2R=GT.CC.GT.CC.TG..C.TC.AC
 KS2R_RC=GT.GA.G..CA.GG.AC.GG.AC
-pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/bactPKS.fa'
+#pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/bactPKS.fa'
+#pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/plantPKS.fa'
 
-grep $KS2F $pksfile | wc -l ## 436
+grep $KS2F $pksfile | wc -l 
+grep $KS2F_RC $pksfile | wc -l 
+grep $KS2R $pksfile | wc -l 
+grep $KS2R_RC $pksfile | wc -l 
 
-grep $KS2F_RC $pksfile | wc -l ## 695
-grep $KS2R $pksfile | wc -l ## 389
-grep $KS2R_RC $pksfile | wc -l ## 492
+grep $KS2R_RC $pksfile 
+
 ## definitely in there
+## go back fix the python code
+
+######################### fungi pks #########################
+
+## fungi for pks
+pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/fungiPKS.fa'
+fungiPKShandle = Entrez.esearch(db="nucleotide", 
+    term="(((Polyketide Synthase) AND Type I) NOT Type II) NOT Type III AND fungi [ORGN]", 
+    idtype="acc",
+    retmax=1000,
+    usehistory="y",
+)
+
+record = Entrez.read(fungiPKShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+
+with open(pksfile, 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+PKS_for = list()
+PKS_for_RC = list()
+PKS_rev = list()
+PKS_rev_RC = list()
+for i in SeqIO.parse(pksfile, "fasta"): 
+    ## forward pks
+    match_i = re.search(KS2F, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_for.append(bs)
+    ## forward pks, reverse comp
+    match_i = re.search(KS2F_RC, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_for_RC.append(bs)
+    ## reverse pks primer
+    match_i = re.search(KS2R, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_rev.append(bs)
+    # reverse pks primer, reverse comp 
+    match_i = re.search(KS2R_RC, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_rev_RC.append(bs)
 
 
+## now write these out as fastas:
+org = 'fungi'
+SeqIO.write(PKS_for, str("PKS_for_"+org+".fa"), "fasta")
+SeqIO.write(PKS_for_RC, str("PKS_for_RC_"+org+".fa"), "fasta")
+SeqIO.write(PKS_rev, str("PKS_rev_"+org+".fa"), "fasta")
+SeqIO.write(PKS_rev_RC, str("PKS_rev_RC_"+org+".fa"), "fasta")
+
+######################### plant pks #########################
+## plant for pks
+plantPKShandle = Entrez.esearch(db="nucleotide", 
+    term="(((Polyketide Synthase) AND Type I) NOT Type II) NOT Type III AND green plants[porgn:__txid33090]", 
+    idtype="acc",
+    retmax=1000,
+    usehistory="y",
+)
+
+record = Entrez.read(plantPKShandle)
+webenv = record["WebEnv"]
+query_key = record["QueryKey"]
+fetch = Entrez.efetch(
+    db="nucleotide",
+    rettype="fasta",
+    retmode="text",
+    retmax=len(record["IdList"]),
+    webenv=webenv,
+    query_key=query_key,
+    idtype="acc",
+)
+
+dataNRPS = fetch.read()
+
+pksfile='/home/daniel/Documents/job_apps/panama/bigFilesBiodiv/plantPKS.fa'
+with open(pksfile, 'w') as f:
+    f.write(dataNRPS)
+    fetch.close()
+
+len(record["IdList"])
+
+PKS_for = list()
+PKS_for_RC = list()
+PKS_rev = list()
+PKS_rev_RC = list()
+for i in SeqIO.parse(pksfile, "fasta"): 
+    ## forward pks
+    match_i = re.search(KS2F, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_for.append(bs)
+    ## forward pks, reverse comp
+    match_i = re.search(KS2F_RC, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_for_RC.append(bs)
+    ## reverse pks primer
+    match_i = re.search(KS2R, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_rev.append(bs)
+    # reverse pks primer, reverse comp 
+    match_i = re.search(KS2R_RC, str(i.seq))
+    if match_i: 
+        bs=Bio.SeqRecord.SeqRecord(
+                                Bio.Seq.Seq(match_i.group()),
+                                id=i.id,
+                                description=i.description,
+                                )
+        PKS_rev_RC.append(bs)
+
+
+## now write these out as fastas:
+
+org = 'plant'
+SeqIO.write(PKS_for, str("PKS_for_"+org+".fa"), "fasta")
+SeqIO.write(PKS_for_RC, str("PKS_for_RC_"+org+".fa"), "fasta")
+SeqIO.write(PKS_rev, str("PKS_rev_"+org+".fa"), "fasta")
+SeqIO.write(PKS_rev_RC, str("PKS_rev_RC_"+org+".fa"), "fasta")
+
+## how hard is it to to get an aligment of out these?
+
+muscle -in PKS_for_plant.fa  -out PKS_for_plant.afa
+
+muscle -in PKS_for_bact.fa  -out PKS_for_bact.afa
+
+## that was easy, even with ~350 seqs..
+
+## does muscle require correction of reverse compliments?
+muscle -in <(cat PKS_for_bact.fa PKS_for_bact_RC.fa) -out testCombo.afa
+
+## looks good.
+
+## can alv show these file formats?
+alv testCombo.afa
+
+## neat. will that work in a jupyter notebook?
+
+## not really. let's make some nice graphs in ugene and put them in there
+## for now. 
+
+## in the future, I think we need something like:
+https://dmnfarrell.github.io/bioinformatics/bokeh-sequence-aligner
+ 
+## anyway...what do we want to show?
+
+## maybe four alignments, NRPS forward and back, PKS forward and back, all organisms
+
+## NRPS is a mess. 
+
+## not sure how to summarize 
+
+## redo bacterial PKS sequences sources, they are almost entirely mycobacterium.

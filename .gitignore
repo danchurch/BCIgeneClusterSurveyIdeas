@@ -1,2 +1,4 @@
 .BCIapp.txt.swp
 .~lock.BiodivGenAppBody.odt#
+.ipynb_checkpoints/
+__pycache__/
