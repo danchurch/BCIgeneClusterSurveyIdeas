@@ -209,6 +209,7 @@ BCIgdf = gpd.GeoDataFrame(
 streamPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_streams.geojson'
 BCIstreams = gpd.read_file(streamPath)
 ## sample grid
+xa, ya = 625774, 1.01178*10**6
 sampleX, sampleY = np.meshgrid([ i*100+xa for i in range(1,10) ],
                                 [ i*100+ya for i in range(1,5) ])
 
@@ -233,6 +234,7 @@ Dipteryx oleifera
 
 ## make a function:
 
+
 def showSpMap(sp, colr):
     plt.close('all')
     aa = BCIgdf.groupby(BCIgdf['Latin'])
@@ -243,11 +245,17 @@ def showSpMap(sp, colr):
     ax = plt.gca()
     BCIstreams.plot(ax=ax, color="blue")
     spDF.plot(ax=ax, color=colr, zorder=3)
-    plt.scatter(xx,yy, 
-                color="black",
-                marker="^",
+    ax.plot(sampleX, sampleY, 
+                marker='s',
+                markersize=10,
+                markeredgewidth=2,
+                markeredgecolor='red',
+                linestyle='none',
+                fillstyle='none',
+                color='black',
                 zorder=4,
-    )
+                #markerfacecolor='black',
+                )
     ax.set_xlim(spDF.geometry.x.min()-50,spDF.geometry.x.max()+50)
     ax.set_ylim(spDF.geometry.y.min()-50,spDF.geometry.y.max()+50)
     ax.vlines(x=[xa,xa+1000], ymin=ya, ymax=ya+500)
@@ -261,6 +269,35 @@ colr = 'green'
 aa = showSpMap(sp, colr)
 
 plt.savefig('EugeniaBCImap.png')
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+points = np.ones(5)  # Draw 5 points for each line
+marker_style = dict(color='tab:blue', 
+                    #linestyle=':',
+                    marker='o',
+                    markersize=15, 
+                    #markerfacecoloralt='tab:red',
+                    )
+plt.close('all')
+fig, ax = plt.subplots()
+# Plot all fill styles.
+for y, fill_style in enumerate(Line2D.fillStyles):
+    ax.text(-0.5, y, repr(fill_style),
+            horizontalalignment='center', verticalalignment='center')
+    ax.plot(y * points, 
+            fillstyle=fill_style, 
+            **marker_style,
+            )
+
+for y, fill_style in enumerate(Line2D.fillStyles):
+    print(fill_style)
+
+ax.set_axis_off()
+ax.set_title('fill style')
+
 
 
 ## how do we get our sampling scheme on there?
@@ -1818,6 +1855,4 @@ https://dmnfarrell.github.io/bioinformatics/bokeh-sequence-aligner
 ## not sure how to summarize 
 
 ## redo bacterial PKS sequences sources, they are almost entirely mycobacterium.
-
-
 
