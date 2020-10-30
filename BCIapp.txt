@@ -11,7 +11,6 @@ import rasterio as rs
 import rasterio.plot as rsPlot
 import Bio
 from Bio import Entrez
-
 plt.ion()
 
 ## think this is a tsv:
@@ -188,8 +187,8 @@ import matplotlib.pyplot as plt
 import rasterio as rs
 import rasterio.plot as rsPlot
 import Bio.Seq 
-import os
-import re
+import os, re
+from matplotlib.patches import Rectangle as rect
 from Bio.Blast import NCBIWWW
 from Bio import Entrez
 from Bio import SeqIO
@@ -197,6 +196,7 @@ from Bio.Align.Applications import MuscleCommandline
 Entrez.email = "danchurchthomas@gmail.com"
 plt.ion()
 
+## get data
 tifPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_ColoredShaded_Relief/BCI_georeff.tiff'
 BCIrast = rs.open(tifPath)
 BCI2020path='/home/daniel/Documents/job_apps/panama/data/GIS/Barro_Colorado_Island_20mx20m_Quadrants_-_Feature_Layer.geojson'
@@ -206,18 +206,12 @@ censusPath = '/home/daniel/Documents/job_apps/panama/data/treeCensusData/PlotDat
 BCItrees = pd.read_csv(censusPath, sep='\t')
 BCIgdf = gpd.GeoDataFrame(
     BCItrees, geometry=gpd.points_from_xy(BCItrees.PX, BCItrees.PY))
-aa = BCIgdf.groupby(BCIgdf['Latin'])
-faramea = aa.get_group('Faramea occidentalis').copy()
-xa, ya = 625774, 1.01178*10**6
-faramea.set_geometry(gpd.points_from_xy(faramea.PX + xa, faramea.PY + ya), inplace=True)
+streamPath = '/home/daniel/Documents/job_apps/panama/data/GIS/BCI_streams.geojson'
+BCIstreams = gpd.read_file(streamPath)
+## sample grid
+sampleX, sampleY = np.meshgrid([ i*100+xa for i in range(1,10) ],
+                                [ i*100+ya for i in range(1,5) ])
 
-plt.close('all')
-rsPlot.show(BCIrast)
-ax = plt.gca()
-#BCI2020.plot(ax=ax)
-faramea.plot(ax=ax, color='red')
-
-## damn, it's everywhere. 
 
 ## this paper has publically available transcriptomic data for six species. 
 https://doi.org/10.1111/mec.13999
@@ -239,9 +233,6 @@ Dipteryx oleifera
 
 ## make a function:
 
-sp = 'Beilschmiedia pendula'
-colr = 'red'
-
 def showSpMap(sp, colr):
     plt.close('all')
     aa = BCIgdf.groupby(BCIgdf['Latin'])
@@ -250,13 +241,58 @@ def showSpMap(sp, colr):
     spDF.set_geometry(gpd.points_from_xy(spDF.PX + xa, spDF.PY + ya), inplace=True)
     rsPlot.show(BCIrast)
     ax = plt.gca()
-    spDF.plot(ax=ax, color=colr)
+    BCIstreams.plot(ax=ax, color="blue")
+    spDF.plot(ax=ax, color=colr, zorder=3)
+    plt.scatter(xx,yy, 
+                color="black",
+                marker="^",
+                zorder=4,
+    )
     ax.set_xlim(spDF.geometry.x.min()-50,spDF.geometry.x.max()+50)
     ax.set_ylim(spDF.geometry.y.min()-50,spDF.geometry.y.max()+50)
-    plt.gcf().suptitle(sp)
+    ax.vlines(x=[xa,xa+1000], ymin=ya, ymax=ya+500)
+    ax.hlines(xmin=xa, xmax=xa+1000, y=[ya, ya+500])
+    #plt.gcf().suptitle(sp)
     plt.tight_layout()
+    return(ax)
 
-showSpMap(sp, colr)
+sp = "Eugenia nesiotica"
+colr = 'green'
+aa = showSpMap(sp, colr)
+
+plt.savefig('EugeniaBCImap.png')
+
+
+## how do we get our sampling scheme on there?
+
+## the thought is to do a 4 x 9 matrix. Corner would be (xa+100, ya+100), 
+## then every 100m in each direction:
+
+list(range(1,10))
+
+
+sampleX, sampleY = np.meshgrid([ i*100+xa for i in range(1,10) ],
+                                [ i*100+ya for i in range(1,5) ])
+plt.scatter(xx,yy, 
+            color="black",
+            marker="^",
+)
+
+xx, yy = np.meshgrid(sampleX, sampleY, sparse=True)
+
+gpd.points_from_xy(sampleX, sampleY)
+
+xsample = xa + 
+
+
+
+plt.gca()
+
+
+aa = gpd.points_from_xy(x=[xa, xa+1000, xa+1000, xa], y=[ya, ya, ya+1000, ya+1000])
+
+plt.gca().add_patch(bb)
+
 
 aa = [
 "Beilschmiedia pendula",
@@ -325,6 +361,12 @@ showSpMap(aa[4], 'brown')
 
 ## what does a map for this look like?
 
+
+showSpMap("Eugenia nesiotica", 'black')
+
+## we want a bounding box, and a sampling grid. 
+
+## bounding box:
 
 
 #########################################################################
@@ -1776,3 +1818,6 @@ https://dmnfarrell.github.io/bioinformatics/bokeh-sequence-aligner
 ## not sure how to summarize 
 
 ## redo bacterial PKS sequences sources, they are almost entirely mycobacterium.
+
+
+

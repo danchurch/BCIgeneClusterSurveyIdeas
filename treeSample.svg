@@ -132,9 +132,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.979899"
-     inkscape:cx="510.46174"
-     inkscape:cy="386.94894"
+     inkscape:zoom="0.7"
+     inkscape:cx="311.26933"
+     inkscape:cy="465.15488"
      inkscape:document-units="mm"
      inkscape:current-layer="g1647"
      showgrid="false"
@@ -11577,50 +11577,47 @@ hSMGgSCoqNAIDbPF8suJROKKJPU6SSQSlw0lBl96lLFQRoglIjnX717gMx9/gF11gzUCBJQIwQe0
        r="2.1737792" />
     <g
        id="g1647">
-      <g
-         id="g1670">
-        <rect
-           style="opacity:1;fill:#ffffff;fill-opacity:0.95714283;stroke:#000000;stroke-width:1;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
-           id="rect1625"
-           width="52.160713"
-           height="22.67857"
-           x="-57.452381"
-           y="203.2619" />
-        <circle
-           style="opacity:1;fill:#e90001;fill-opacity:1;stroke:#000000;stroke-width:0.69165701;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
-           id="path826-3-7-3-6"
-           cx="-50.073589"
-           cy="210.08636"
-           r="2.1737792" />
-        <text
-           xml:space="preserve"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111126px;line-height:6.61458302px;font-family:'Abyssinica SIL';-inkscape-font-specification:'Abyssinica SIL';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:center;writing-mode:lr-tb;text-anchor:middle;opacity:1;fill:#e90001;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
-           x="-31.239264"
+      <rect
+         y="203.2619"
+         x="-57.452381"
+         height="22.67857"
+         width="52.160713"
+         id="rect1625"
+         style="opacity:1;fill:#ffffff;fill-opacity:0.95714283;stroke:#000000;stroke-width:1;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+      <circle
+         r="2.1737792"
+         cy="210.08636"
+         cx="-50.073589"
+         id="path826-3-7-3-6"
+         style="opacity:1;fill:#e90001;fill-opacity:1;stroke:#000000;stroke-width:0.69165701;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+      <text
+         id="text899"
+         y="212.05696"
+         x="-31.239264"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111126px;line-height:6.61458302px;font-family:'Abyssinica SIL';-inkscape-font-specification:'Abyssinica SIL';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:center;writing-mode:lr-tb;text-anchor:middle;opacity:1;fill:#e90001;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         xml:space="preserve"><tspan
+           style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-miterlimit:0;stroke-dasharray:none;stroke-opacity:1"
            y="212.05696"
-           id="text899"><tspan
-             sodipodi:role="line"
-             id="tspan897"
-             x="-31.239264"
-             y="212.05696"
-             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-miterlimit:0;stroke-dasharray:none;stroke-opacity:1">Epiphyte</tspan></text>
-        <circle
-           style="opacity:1;fill:#0000ff;fill-opacity:1;stroke:#000000;stroke-width:0.69165701;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
-           id="path826-6-5-5"
-           cx="-50.073589"
-           cy="218.88377"
-           r="2.1737792" />
-        <text
-           xml:space="preserve"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111126px;line-height:6.61458349px;font-family:'Abyssinica SIL';-inkscape-font-specification:'Abyssinica SIL';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:center;writing-mode:lr-tb;text-anchor:middle;opacity:1;fill:#e90001;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
-           x="-28.086309"
+           x="-31.239264"
+           id="tspan897"
+           sodipodi:role="line">Epiphyte</tspan></text>
+      <circle
+         r="2.1737792"
+         cy="218.88377"
+         cx="-50.073589"
+         id="path826-6-5-5"
+         style="opacity:1;fill:#0000ff;fill-opacity:1;stroke:#000000;stroke-width:0.69165701;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+      <text
+         id="text899-2"
+         y="221.38354"
+         x="-28.086309"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:7.76111126px;line-height:6.61458349px;font-family:'Abyssinica SIL';-inkscape-font-specification:'Abyssinica SIL';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:center;writing-mode:lr-tb;text-anchor:middle;opacity:1;fill:#e90001;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-linecap:square;stroke-miterlimit:0;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
+         xml:space="preserve"><tspan
+           style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-miterlimit:0;stroke-dasharray:none;stroke-opacity:1"
            y="221.38354"
-           id="text899-2"><tspan
-             sodipodi:role="line"
-             id="tspan897-9"
-             x="-28.086309"
-             y="221.38354"
-             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.30000001;stroke-miterlimit:0;stroke-dasharray:none;stroke-opacity:1">Endophyte</tspan></text>
-      </g>
+           x="-28.086309"
+           id="tspan897-9"
+           sodipodi:role="line">Endophyte</tspan></text>
     </g>
     <g
        id="g1276"
