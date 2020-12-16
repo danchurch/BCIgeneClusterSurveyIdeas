@@ -192,6 +192,8 @@ from matplotlib.patches import Rectangle as rect
 from Bio.Blast import NCBIWWW
 from Bio import Entrez
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
 from Bio.Align.Applications import MuscleCommandline
 Entrez.email = "danchurchthomas@gmail.com"
 plt.ion()
@@ -1913,10 +1915,10 @@ record = SeqIO.read( bb, "fasta" )
 
 ## okay, so to loop through our accessions and get the fastas we need:
 
-aa = pd.read_csv('ChenDuAccessions.csv', header=None)
-aa.columns = ['name', 'id','NorP']
+chenDu = pd.read_csv('ChenDuAccessions.csv', header=None)
+chenDu.columns = ['name', 'id','NorP','bactOrFungi','nucID']
 ## our proteins are here:
-prots = aa[aa['NorP'] == 'p'].id.to_list()
+prots = chenDu[chenDu['NorP'] == 'p'].id.to_list()
 ## remove problematic protein sequence:
 prots.remove('WP_011873136.1')
 
@@ -1933,7 +1935,10 @@ for i in prots:
         id=idd
     )
     record = SeqIO.read( bb, "fasta" )
+    print(i+" is "+ record.id)
     SeqIO.write(record, handle=record.id+'.fa', format='fasta')
+
+## add those nuseq ids to the ChenDu panda
 
 ## get the ChenDu accessions that are already nutide seqs:
 
@@ -1954,6 +1959,8 @@ for i in nucs:
 
 ## for deleting first mistakes:
 #find . -maxdepth 1 -newermt "2020-12-13" -name "*.fa" -exec rm {} \;
+
+#find . -maxdepth 1 -newermt "2020-12-15" -name "*.fa" -exec rm {} \;
 
 ## okay, we should have (almost) all the sequences that ChenDu used for
 ## for their tree of KS homology...can we find our primers in these 
@@ -2064,8 +2071,13 @@ KS2Rrc
 ## looks okay, try a sample search:
 
 p = re.compile(KS2Rrc)
-aa = 'GAACGGAGTCGAGGCTCACGGAAAACGGAACGGAGTCGAGGCTCACGGAACTGGCACGGAACGGAACGGAAC'
+aa = 'GAACGGAGTCGAGGCTCACGGTCGAAGGTCATGGCACTGGAACGGCTCACGGAACTGGCACGGAACGGAACGGAACGTCGAAGGTCATGGCACTGGAAC'
+#aa = 'GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG'
 bb = p.search(aa)
+cc = p.findall(aa)
+dd = list(p.finditer(aa))
+ee = [ i.span() for i in dd ]
+
 if bb is not None: 
     b, e = p.search(aa).span()
     print('KS2Rrc')
@@ -2088,9 +2100,298 @@ KS2Rrc = 'GT[TCA]GA[AG]G[CG][TCA]CA[CT]GG[TCA]AC[TCA]GG[TCA]AC'
 
 ## can we search our various fastas for these primers? 
 
+KS2Fregex = re.compile(KS2F)
+KS2Rregex = re.compile(KS2R)
+KS2Frcregex = re.compile(KS2Frc)
+KS2Rrcregex = re.compile(KS2Rrc)
+
+hits = []
+desc = []
 for i in os.listdir('ChenDuAccs'):
     print(i)
+    aa = SeqIO.parse(open(('ChenDuAccs/'+i), mode='r'), 'fasta')
+    rec = list(aa)[0]
+    if KS2Fregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    if KS2Rregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    if KS2Frcregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    if KS2Rrcregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    hits = [ i.replace('.fa', '') for i in hits ]
+    hitsU = list(set(hits))
 
-aa = SeqIO.parse(open(('ChenDuAccs/'+i), mode='r'), 'fasta')
+
+## only 5 non-redundant hits
+
+## any fungal?
+
+hasPrim = chenDu[chenDu['nucID'].isin(hitsU)]
+
+hasPrim.reset_index(inplace=True, drop=True)
+
+hasPrim
+
+## yup, fumonisin gene cluster
+
+## well, maybe we can take align these and take a look at them. 
+## how do we get the regions of interest?
+
+## according to the pnas article, we should 
+## be looking at amplified regions of 350-500 bp
+## does our one sequence with both primers bear this out?
+
+## MonAI 
+## AF440781.1
+
+## how do we find the regions we need?
 
 
+def getPrimerSpan(fafile, primer):
+    """use one of the compiled regexes above"""
+    with open((fafile), mode='r') as f:
+        aa = SeqIO.parse(f, 'fasta')
+        sequ = str(list(aa)[0].seq)
+    primiter = primer.finditer(sequ)
+    if primiter: 
+        primerSpans = [ i.span() for i in list(primiter) ]
+    else: 
+        primerSpans = None
+        print('primer not found')
+    return(primerSpans)
+
+fafile='ChenDuAccs/AF440781.1.fa'
+
+## forward
+
+
+getPrimerSpan(fafile=fafile, primer=KS2Fregex)
+
+getPrimerSpan(fafile=fafile, primer=KS2Rregex)
+
+getPrimerSpan(fafile=fafile, primer=KS2Frcregex)
+
+getPrimerSpan(fafile=fafile, primer=KS2Rrcregex)
+
+## these are all very far apart. 
+
+
+## so what do we need to do? Need to be efficient about time here...
+
+## These are pretty large proteins, average maybe 6,000 AAs. 
+## so not going to try to repeat ChenDu's alignment. That is something
+## I should get paid to do. 
+
+## and we have to get on to the GIS stuff. can we extract the candidate regions 
+## from the primer sites, knowing that they should be maybe 500 bp?
+
+## pipeline for this:
+
+## our fastas with the found primers are:
+
+hasPrimerFiles = [ ("ChenDuAccs/"+i+".fa") for i in hasPrim.nucID.values ]
+
+
+## in each of these, 
+## if they have a forward primer or forward reverse comp, get the next 500 bp
+## if they have a reverse or reverse comp, get the previous 500 bp
+
+## try one
+KS2Fregex 
+KS2Rregex 
+KS2Frcregex 
+KS2Rrcregex 
+
+hasPrimerFiles[0]
+
+getPrimerSpan(hasPrimerFiles[0],KS2Fregex) ## two hits.
+getPrimerSpan(hasPrimerFiles[0],KS2Frcregex) ## no
+getPrimerSpan(hasPrimerFiles[0],KS2Rregex) ## three hits.
+getPrimerSpan(hasPrimerFiles[0],KS2Rrcregex) ## none. 
+## Odd.something may be wrong with our reverse complements
+
+## to get the ~500 bp after each forward hit:
+
+def getBPfromSite(fastafile, site, bp):
+    """function to get sequence chunks from before or past a primer site."""
+    with open(fastafile, mode='r') as f:
+        seqIter = SeqIO.parse(f, 'fasta')
+        sequ = list(seqIter)[0].seq
+    if bp < 0:
+        forfivehundo = sequ[(site[1]+bp):site[1]]
+    elif bp > 0:
+        forfivehundo = sequ[site[0]:(site[1]+bp)]
+    elif bp == 0: 
+        forfivehundo = None
+    return(forfivehundo)
+
+## okay, this takes one span and gets a sequence from one file
+
+## how do we use this to get our sequences?
+
+## gotta go through all 6 pks sequences, 
+##    in each pks, check for presence of each primer
+##        in each primer hit, get 500 bp sequence
+ 
+## test with forward primer. so +500 bp
+
+seqName=(hasPrim.nucID.values[i] + '_primer-' +'KS2F')
+fastafile=hasPrimerFiles[i]
+primer=KS2Fregex
+
+def getSeqsForAPrimer(fastafile, primer, seqName):
+    sites = getPrimerSpan(fastafile,primer)
+    seqs=[]
+    for sitenumber, site in enumerate(sites):
+        sequence = getBPfromSite(hasPrimerFiles[0], site=site, bp=500)
+        seqid = seqName+'_S'+str(sitenumber)
+        seqRec = SeqRecord(sequence) 
+        seqRec.id = seqid
+        seqs.append(seqRec)
+    return(seqs)
+
+getPrimerSpan(fastafile,primer)
+
+primerRegexes=[KS2Fregex, KS2Rregex, KS2Frcregex, KS2Rrcregex]
+
+for i,j in enumerate(
+seqName=(hasPrim.nucID.values[i] + '_primer-' +'KS2F')
+fastafile=hasPrimerFiles[i]
+primer=KS2Fregex
+aa = getSeqsForAPrimer(fastafile, primer, seqName)
+
+## write to a fasta file:
+SeqIO.write(aa, 'testa.fasta', 'fasta')
+
+## great. so do that for all primers, on all 6 sequences.
+## probably reduce the length, to 100 bp?
+## otherwise, alignment might be too much.
+
+## back up, prep for jupyter in case this actually works. 
+## here are the packages we need to bring in:
+
+import pandas as pd
+import shapely as sh
+import numpy as np
+import os, re, copy
+from Bio import Entrez
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
+Entrez.email = "danchurchthomas@gmail.com"
+
+## and here are the functions we need:
+
+def getPrimerSpan(fafile, primer):
+    """use one of the compiled regexes above"""
+    with open((fafile), mode='r') as f:
+        aa = SeqIO.parse(f, 'fasta')
+        sequ = str(list(aa)[0].seq)
+    primiter = primer.finditer(sequ)
+    if primiter: 
+        primerSpans = [ i.span() for i in list(primiter) ]
+    else: 
+        primerSpans = None
+        print('primer not found')
+    return(primerSpans)
+
+def getBPfromSite(fastafile, site, bp):
+    """function to get sequence chunks from before or past a primer site."""
+    with open(fastafile, mode='r') as f:
+        seqIter = SeqIO.parse(f, 'fasta')
+        sequ = list(seqIter)[0].seq
+    if bp < 0:
+        seqFrag = sequ[(site[1]+bp):site[1]]
+    elif bp > 0:
+        seqFrag = sequ[site[0]:(site[1]+bp)]
+    elif bp == 0: 
+        seqFrag = None
+    return(seqFrag)
+
+def getSeqsForAPrimer(fastafile, primer, seqName, seqLength):
+    """use getPrimerSpan() and getBPfromSite() to collect the sequence
+        fragments from each matching site to a primer and put into a 
+        list of biopython sequence record objects"""
+    sites = getPrimerSpan(fastafile,primer)
+    seqs=[]
+    for sitenumber, site in enumerate(sites):
+        sequence = getBPfromSite(hasPrimerFiles[0], site=site, bp=seqLength)
+        seqid = seqName+'_S'+str(sitenumber)
+        seqRec = SeqRecord(sequence) 
+        seqRec.id = seqid
+        seqs.append(seqRec)
+    return(seqs)
+
+## primers and primer RC regexes ##
+KS2F="GC[TGA]ATGGA[CT]CC[TGA]CA[AG]CA[AG][AC]G[TGA][ACG]T"
+KS2R = "GT[TGA]CC[TGA]GT[TGA]CC[AG]TG[TGA][CG]C[CT]TC[TGA]AC"
+KS2Frc = 'A[CGT][TCA]C[GT][CT]TG[CT]TG[TCA]GG[AG]TCCAT[TCA]GC'
+KS2Rrc = 'GT[TCA]GA[AG]G[CG][TCA]CA[CT]GG[TCA]AC[TCA]GG[TCA]AC'
+## compiled:
+KS2Fregex = re.compile(KS2F)
+KS2Rregex = re.compile(KS2R)
+KS2Frcregex = re.compile(KS2Frc)
+KS2Rrcregex = re.compile(KS2Rrc)
+
+## make a series to iterate over
+primerRegexes = [KS2Fregex, KS2Rregex, KS2Frcregex, KS2Rrcregex]
+primerRegexesNames = ['KS2F', 'KS2R', 'KS2Frc', 'KS2Rrc']
+primSeries = pd.Series(primerRegexes, index=primerRegexesNames)
+
+## data
+chenDu = pd.read_csv('ChenDuAccessions.csv', header=None)
+chenDu.columns = ['name', 'id','NorP','bactOrFungi','nucID']
+## our proteins are here:
+prots = chenDu[chenDu['NorP'] == 'p'].id.to_list()
+## remove problematic protein sequence:
+prots.remove('WP_011873136.1')
+
+## find out which of the ChenDu sequences have an exact match
+## to our primers:
+
+hits = []
+desc = []
+for i in os.listdir('ChenDuAccs'):
+    print(i)
+    aa = SeqIO.parse(open(('ChenDuAccs/'+i), mode='r'), 'fasta')
+    rec = list(aa)[0]
+    if KS2Fregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    if KS2Rregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    if KS2Frcregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    if KS2Rrcregex.search(str(rec.seq)): hits.append(i); desc.append(rec.description)
+    hits = [ i.replace('.fa', '') for i in hits ]
+    hitsU = list(set(hits))
+
+
+hasPrim = chenDu[chenDu['nucID'].isin(hitsU)]
+hasPrim.reset_index(inplace=True, drop=True)
+hasPrim ## these are our accessions of interest
+
+## our files therefore are:
+hasPrimerFiles = [ ("ChenDuAccs/"+i+".fa") for i in hasPrim.nucID.values ]
+
+seqName=(hasPrim.nucID.values[i] + '_primer-' +'KS2F')
+fastafile=hasPrimerFiles[i]
+
+primer=KS2Fregex
+
+accessionseqs=[]
+for fileNu, file in enumerate(hasPrimerFiles):
+    print(file)
+    for primNu, prim in enumerate(primSeries):
+        seqName=(hasPrim.nucID.values[fileNu] + '_primer-' +primSeries.index[primNu])
+        print(seqName)
+        if 'F' in primSeries.index[primNu]: n = (+1)
+        elif 'R' in primSeries.index[primNu]: n = (-1)
+        primHitSeqs=getSeqsForAPrimer(file, primer=prim, seqName=seqName, seqLength=(500*n))
+        accessionseqs += primHitSeqs
+
+SeqIO.write(accessionseqs, 'chenDuPrimerHits.fa', 'fasta')
+
+## hmm, hard to do sanity checks on these. guess we gotta do an alignment and 
+## see if it makes any sense at all.
+
+## to BASH
+
+muscle -in chenDuPrimerHits.fa -out testAlignChenduHits.fa
+
+alv testAlignChenduHits.fasta
+
+import jupyter_seqPlotters
