@@ -2394,4 +2394,274 @@ muscle -in chenDuPrimerHits.fa -out testAlignChenduHits.fa
 
 alv testAlignChenduHits.fasta
 
-import jupyter_seqPlotters
+## anyway, looks promising
+
+## that's probably all the time we have for now to deal with the primers.
+
+######## crane site data #######
+
+## okay, gotta start compiling and understanding the data that is available
+## from the iDiv folks.
+
+## what have we got?
+
+## we got tree locations, and species id, and DEM, etc, lots of good stuff. 
+
+## what do we do now?
+
+## nail down experimental methods, and sampling scheme. 
+
+## I think I am proposing two projects: functional microbiome survey and transport 
+## of fungi.
+
+## a third is hidden in there, doing a basic fungal taxonomic diversity survey, 
+## by tucking ITS work in whereever barcoding happens, but downplay this in the
+## grant to avoid appearance of over-committing, and making the application too
+## complex.
+
+## for the stemflow, basically accompany the proposed stem flow survey with some sterile 
+## plants, both subject to stemflow from tree and protected from tree. 
+
+## seedlings will be of one species, the most common or most commonly sampled tree,
+## to control for host effects of community assembly. Thus most of the time the 
+## seedling species matches host tree, but sometimes doesn't. 
+
+## can we get our tree species into a geojson and into a gpd df?
+
+import copy, os, re
+import pandas as pd 
+import numpy as np
+import geopandas as gpd
+import rasterio
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+plt.ion()
+
+lccTrees = gpd.read_file("/home/daniel/Documents/grants/"
+                    "geneClust/data/LCCdata/modifiedGISforApp"
+                    "/LCCtrees.geojson")
+
+
+## what are our most common trees?
+
+lccTrees.head()
+
+lccTrees.tail()
+
+lccTrees.spec
+
+lTgroupSpp = lccTrees.groupby(lccTrees.spec)
+
+abundances = lTgroupSpp.agg(np.size)['Tree_ID'].copy()
+
+abundances.sort_values(ascending=False, inplace=True)
+
+abundances.plot.bar()
+
+abundances
+
+"""
+BAH = Acer pseudoplatanus
+BUL = Ulmus glabra
+FAH = Acer campestre
+FEUL = Ulmus minor
+FLUL = Ulmus laevis
+GES= Fraxinus excelsior
+HAS = Corylus avellana
+HBU= Carpinus betulus
+HOL = Sambusus nigra
+KPA = Populus canadensius
+REI = Quercus rubra
+RES = Fraxinus pensylvanica
+RKA = Aesculus hippocastanum
+RO= Robinia pseudoacacia
+SAH= Acer platanoides
+SEI= Quercus robur
+VKI = Prunus avium
+WD = Crataegus sp. 
+WLI = Tilia cordata  
+"""
+
+## most common types are two non-native maples and tilia.
+## what's the goal here? what did Herrmann do in her last paper?
+
+## they did three species, maple, tilia, and oak
+## three individuals from each species
+## three zones each (lower, mid, upper)
+## then three samples from each tree/zone
+
+## 3 x 3 x 3 = 27 samples
+
+## some problems with the sample, spatially clustered - 
+## all the oaks at one end, all the lindens at the 
+## other, maples distributed between the two clusters.
+
+## so spatial effects alone could have caused their
+## putative host effects. 
+
+## have to fix that. 
+
+## to really test host effects, seedlings would be nice. 
+
+lTgroupSpp.agg
+
+help(lTgroupSpp.agg)
+
+## so if I could have all the miseq runs, money, and time I ever wanted,
+## what would I sample?
+
+## 1a - match the old sampling, but correct for spatial problem,
+## so do a few trees in the middle, match age class and 
+## 1b - check for seasonal and yearly effects. 
+## 1c - phenology - for 2 years, 2 sampling events per year (beginning and end of year)
+
+## 2 - functional microbiome surveys, 2 years, 2 sampling events
+##      - first year without seedlings, also repeat/match bacterial sampling
+##      - environmental gradient: seedlings in exposed and sheltered conditions, predicted elevated melanin, anthraquinones, other polyketide pigments:
+##      - pertinent secondary metabolites? 
+
+## 3 - stemflow traps - check filters for fungi, also place 
+
+## first year:
+
+## conduct functional study
+## grow seedlings
+## conduct base level ITS surveys 
+
+## second year:
+
+## seedling studies
+
+## seedings - each site gets 
+
+## 1 open to litter, closed to stem flow (+/-)
+## 2 closed to litter, open to stem flow (-/+)
+## 3 closed to litter, closed to stem flow (-/-)
+## 4 open to litter, open to stem flow  (+/+)
+
+## so let's frame this as a general investigation of the functional 
+## microbiome, with an obersvational phase and a experimental phase
+## this first phase would also allow the testing of the primers. 
+
+## first year would repeat the methods of Hermann 2020, plus a few 
+## trees, but with ITS and candidate PKS/NRPS primers.  Second year 
+## would use seedlings, and implement stemflow setup. 
+
+## redo sample diagram to have three zones. 
+
+## make map, with additonal trees. 
+
+## diagram of stem flow experimental setup with seedlings
+
+## first year - 18 samples / tree, 
+
+
+## anyway, let's make a map of the three species that Herrmann used
+
+lccTrees.head()
+
+## our three species are:
+
+herrmannSpec = ['BAH','SEI','WLI']
+
+## subset to just these:
+
+justHerrmannSpec = lccTrees[lccTrees.spec.isin(herrmannSpec)]
+
+## still huge, about half of our species
+justHerrmannSpec.shape
+
+## plot, colored by species.
+
+## get our colors
+
+colorDic = {'BAH':'#f19c43',
+            'SEI':'#549ad7',
+            'WLI':'#3c7403'}
+colsSpec = justHerrmannSpec.spec.apply(lambda x: colorDic[x])
+
+fig, ax = plt.subplots()
+justHerrmannSpec.plot(c=colsSpec, ax=ax)
+
+## can we identify the trees used in the original study?:
+
+herrmannTrees = [
+                "K129.0",
+                "K317.0",
+                "K733.0",
+                "K33.0" ,
+                "K513.1",
+                "K754.0",
+                "K444.0",
+                "K455.0",
+                "K517.1"
+                ]
+
+herrmannTrees = justHerrmannSpec.Tree_ID.isin(herrmannTrees)
+
+justHerrmannTrees = justHerrmannSpec[herrmannTrees]
+
+colsSpec = justHerrmannTrees.spec.apply(lambda x: colorDic[x])
+
+fig, ax = plt.subplots()
+justHerrmannTrees.plot(c=colsSpec, ax=ax)
+
+## well, that looks a little different than their report. 
+
+## less problematic, spatially. I wonder which is correct?
+
+## anyway, doesn't matter. What do we need here? 
+
+## this just in, the Herrmann lab group has decided to drop
+## maples, and sample ash instead
+
+## and here is her summary:
+## We plan to sample two individuals of three tree species
+## each will be equipped with triplicate throughfall samplers at three different height levels (top, mid, bottom position). 
+## That will be 9 throughfall samplers per tree. 
+## 6 trees x 9 samplers = 54 throughfall samplers total.
+## which will give us insight into carbon and nitrogen compounds and microorganisms being transported via throughfall. 
+## We were planning to sample six times a year focusing mostly on the vegetation period. 
+## Out of these samples, we will select three or four time points a year for in depth community analysis. 
+## Each time we sample throughfall, we will also sample leave material nearby the throughfall samplers. 
+## Phyllosphere microbial communities will be analyzed for those time points for which we also analyze the communities in the throughfall. 
+## We plan to follow this sampling design for two vegetation periods (2021 and 2022). 
+
+## so what am I adding to this?
+
+## ITS sampling to every 16s survey
+## seedlings. 
+
+## diagram for network model of leaf collections
+
+## do we have rain data?
+
+wd = ("/home/daniel/Documents/grants/geneClust/data/LCCdata/climateData/")
+d4pd = dict()
+for h,i in enumerate(os.listdir(wd)):
+    print(i)
+    aa = pd.read_csv(wd+i)
+    bb = aa[['Date','RegenSumme in mm']].copy()
+    bb['month'] = [ j[0] for j in bb.Date.str.split("/") ]
+    bb.drop(columns='Date', inplace=True)
+    cc = bb[['month', 'RegenSumme in mm']].copy()
+    yr = re.compile('20[0-9][0-9]')
+    yearStr = yr.findall(i)[0]
+    print('yearStr = ' + yearStr)
+    newnames = list(cc.columns)
+    newnames[1] = ('Rain' + yearStr)
+    cc.columns = newnames
+    dd = pd.Series(cc[('Rain' + yearStr)])
+    dd.set_index = cc['month']
+    d4pd[('Rain' + yearStr)] = dd 
+
+d4pd['month'] = bb['month']
+rainDF = pd.DataFrame(d4pd)
+rainDF.set_index('month', inplace=True)
+rainDF = rainDF[rainDF.columns.sort_values()]
+
+rainDF.plot()
+
+## that took forever, but the basic message is that there is plenty of summer water 
+
+## great, lots of water, no worries about the stemflow stopping during the summer
