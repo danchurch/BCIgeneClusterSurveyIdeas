@@ -2665,3 +2665,302 @@ rainDF.plot()
 ## that took forever, but the basic message is that there is plenty of summer water 
 
 ## great, lots of water, no worries about the stemflow stopping during the summer
+
+## what else? map of plots  
+
+## I think we can assume that they will situate the stemflow on a tree that already 
+## has sensors. 
+
+## and they changed the trees that they want to work, so let's see how much we can 
+## narrow this down:
+
+import pandas as pd 
+import numpy as np
+import geopandas as gpd
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+plt.ion()
+
+lccTrees = gpd.read_file("/home/daniel/Documents/grants/"
+                    "geneClust/data/LCCdata/modifiedGISforApp"
+                    "/LCCtrees.geojson")
+
+lccSensors = gpd.read_file("/home/daniel/Documents/grants/"
+                    "geneClust/data/LCCdata/modifiedGISforApp"
+                    "/LCCSensors.geojson")
+
+##  clear up the LI/WLI difference
+lccSensors['BAUMART'] = lccSensors.BAUMART.str.replace('LI','WLI')
+
+## make the unique IDs compatible:
+lccTrees['Tree_ID'] = lccTrees['Tree_ID'].str.replace('K','')
+
+
+## let's see if we can predict the trees by narrowing it down:
+
+## our three species are now:
+herrmannSpec = ['GES','SEI','WLI']
+
+## subset to just these:
+
+justHerrmannSpec = lccTrees[lccTrees.spec.isin(herrmannSpec)]
+
+colorDic = {'BAH':'#f19c43',
+            'GES':'#861c83',
+            'SEI':'#549ad7',
+            'WLI':'#3c7403'}
+colsSpec = justHerrmannSpec.spec.apply(lambda x: colorDic[x])
+
+
+fig, ax = plt.subplots()
+justHerrmannSpec.plot(c=colsSpec, ax=ax)
+
+## okay, now which ones have sensors?
+
+lccSensors.head()
+
+lccSensors.tail()
+
+## we need the unique tree IDs:
+
+lccSensors.Name
+
+herrmTreeIDs = justHerrmannSpec['Tree_ID'].str.replace('K','')
+sensTrees = herrmTreeIDs.isin(lccSensors.Name)
+
+justHerrmSpecSens = justHerrmannSpec[sensTrees] 
+
+## plot it
+colsSpec = justHerrmSpecSens.spec.apply(lambda x: colorDic[x])
+fig, ax = plt.subplots()
+justHerrmSpecSens.plot(c=colsSpec, ax=ax)
+
+## we could narrow down to the species that were sampled previously:
+
+herrmannOldTrees = [
+                "129.0",
+                "317.0",
+                "733.0",
+                "33.0" ,
+                "513.1",
+                "754.0",
+                "444.0",
+                "455.0",
+                "517.1"
+                ]
+
+oldTreesFilt = lccTrees.Tree_ID.isin(herrmannOldTrees)
+oldNewTrees = lccTrees[oldTreesFilt]
+
+
+## plot it
+colsSpec = oldNewTrees.spec.apply(lambda x: colorDic[x])
+
+fig, ax = plt.subplots()
+oldNewTrees.plot(c=colsSpec, ax=ax)
+
+## scale by girth?
+
+oldNewTrees[['Tree_ID', 'BHD_2020']]
+
+BHDmarker = (oldNewTrees.BHD_2020
+                .str.replace(',','.')
+                .astype('float64'))
+
+## or maybe height?
+
+HGmarker = (oldNewTrees.hG_2020
+                .str.replace(',','.')
+                .astype('float64'))
+
+colsSpec = oldNewTrees.spec.apply(lambda x: colorDic[x])
+
+fig, ax = plt.subplots()
+oldNewTrees.plot(c=colsSpec, ax=ax, markersize = BHDmarker)
+
+fig, ax = plt.subplots()
+oldNewTrees.plot(c=colsSpec, ax=ax, markersize = HGmarker)
+
+## diameter is more useful for distinguishing these.
+
+## do the heights agree between the sensor and the general 2020 data?
+
+## anyway, those five trees are likely candidates for 
+## Herrmann's next study
+
+
+## so looks like we would want trees that are: 
+
+## ash
+## 30-40m tall, 
+## have sensors
+## have non-clustered distribution
+## near our other sampled trees? seems like you want to do some sort of neutral spatial effects analysis.
+
+## are there many of these?:
+
+lccTrees
+
+
+## goal here is to present a map to the group. maybe use bokeh 
+## because it is fun.
+
+## answer my own question, so to speak.
+
+lccSensors.Name
+
+lTID = lccTrees['Tree_ID'].str.replace('K','')
+
+lccTrees[lTID.isin(lccSensors.Name)] ## only 28 trees with sensors, is this right?
+
+## no, missing two sensor trees. Just work with the sensor data
+
+## back to our checklist:
+
+## 1) have sensors
+## 2) ash
+## 3) 30-40m tall, 
+## 4) have non-clustered distribution
+## 5?) near our other sampled trees? seems like you want to do some sort of neutral spatial effects analysis.
+
+## 1 & 2 - subset sensor Trees to ash:
+ashSensFilt = (lccSensors.BAUMART == 'GES')
+
+ashSens = lccSensors[ashSensFilt]
+
+## 3) 30-40m tall. The lccSensor height looks a little wonky to me. 
+##    So get it from the main spreadsheet data:
+## So grab it from the main spreadsheet data
+
+def getHeight(name):
+    aa = (lccTrees[lccTrees['Tree_ID'] == name]
+            .hG_2020.values[0]
+            .replace(',','.')
+            )
+    return(aa)
+
+ashSens.Name.apply(getHeight) ## all between 32m and 37m, so no refinement here
+
+## while we're at it, get BHD for plotting
+
+
+def getBHD(name):
+    aa = (lccTrees[lccTrees['Tree_ID'] == name]
+            .BHD_2020.values[0]
+            .replace(',','.')
+            )
+    return(aa)
+
+ashBHD = ashSens.Name.apply(getBHD).astype('float64')
+
+## according to this they all fit, with maybe the first being too tall. 
+
+## 4 & 5) non-clustered, near other trees. Just look at them and 
+## pick out a few:
+
+ashColsSpec = ashSens.BAUMART.apply(lambda x: colorDic[x])
+fig, ax = plt.subplots()
+oldNewTrees.plot(c=colsSpec, ax=ax, markersize = BHDmarker)
+ashSens.plot(c=ashColsSpec, ax=ax, markersize = ashBHD)
+
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles, labels)
+
+
+## let's make a bokeh plot
+
+## all trees, sized by DBH
+## if not of interest, faded gray
+## with hover id and species
+## of interest: sensors present, ashes, and trees from previous study, excluding maples
+
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from bokeh.io import show, output_notebook, output_file
+from bokeh.models import (GeoJSONDataSource, ColumnDataSource,
+                            HoverTool)
+from bokeh.plotting import figure
+plt.ion()
+
+
+### data for bokeh plot ###
+## GIS from Ron
+lccTrees = gpd.read_file("/home/daniel/Documents/grants/"
+                    "geneClust/data/LCCdata/modifiedGISforApp"
+                    "/LCCtrees.geojson")
+
+lccSensors = gpd.read_file("/home/daniel/Documents/grants/"
+                    "geneClust/data/LCCdata/modifiedGISforApp"
+                    "/LCCSensors.geojson")
+
+##  clear up the LI/WLI difference
+lccSensors['BAUMART'] = lccSensors.BAUMART.str.replace('LI','WLI')
+## make the unique IDs compatible:
+lccTrees['Tree_ID'] = lccTrees['Tree_ID'].str.replace('K','')
+## make BHD into numeric column
+lccTrees['BHD_2020'] = lccTrees['BHD_2020'].replace('na', np.NaN)
+lccTrees['BHD_2020'] = lccTrees['BHD_2020'].str.replace(',','.')
+lccTrees['BHD_2020'].dropna(axis='index', how='any', inplace=True)
+lccTrees['BHD_2020'] = lccTrees['BHD_2020'].astype('float64')
+## let's make a Series for markersizes from BHD (they are too big
+## as is), and sensors around these:
+lccTrees['BHDmarkersize'] = lccTrees['BHD_2020'].apply(np.log10)
+lccTrees['sensorSize'] = lccTrees['BHDmarkersize'].apply(lambda a: a*1.4)
+## plot colors 
+lccTrees['cols'] = np.repeat('#a7a7a7', lccTrees.shape[0])
+## sensor colors
+lccTrees['sensorAlpha'] = np.repeat(0,lccTrees.shape[0])
+filt = lccTrees.Tree_ID.isin(lccSensors.Name)
+lccTrees.loc[filt, 'sensorAlpha'] = '1'
+
+
+### 
+## if we want to plot all the lccTrees, and make them faded gray,
+## with hover tool
+
+
+#geosource = GeoJSONDataSource(geojson = lccTrees.to_json())
+
+lccCDS = ColumnDataSource(data=lccTrees[['Tree_ID',
+                                            'E_UTM', 
+                                            'N_UTM', 
+                                            'BHDmarkersize',
+                                            'sensorSize',
+                                            'sensorAlpha',
+                                            'cols']])
+
+output_file('lccTrees2.html')
+
+p = figure (title='LCC trees ',
+           plot_height=600,
+            aspect_ratio=1,
+            toolbar_location='below',
+            tools='pan, wheel_zoom, box_zoom, reset'
+           )
+
+## laydown sensor circles
+
+sensorCircs = p.circle('E_UTM', 'N_UTM', source=lccCDS,
+                    fill_color='#0000FF',
+                    line_color='None',
+                    radius='sensorSize',
+                    alpha='sensorAlpha',
+                    )
+
+trCircs = p.circle('E_UTM', 'N_UTM', source=lccCDS,
+                    fill_color='cols',
+                    line_color='black',
+                    radius='BHDmarkersize',
+                    alpha=0.3,
+                    )
+
+# Create hover tool
+p.add_tools(HoverTool(renderers = [trCircs], 
+                      tooltips = [('K','@Tree_ID')]))
+
+show(p)
+
+
+
