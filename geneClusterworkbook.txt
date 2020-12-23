@@ -2877,12 +2877,10 @@ ax.legend(handles, labels)
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from bokeh.io import show, output_notebook, output_file
-from bokeh.models import (GeoJSONDataSource, ColumnDataSource,
+from bokeh.models import (ColumnDataSource,
                             HoverTool)
 from bokeh.plotting import figure
-plt.ion()
 
 
 ### data for bokeh plot ###
@@ -2890,11 +2888,12 @@ plt.ion()
 lccTrees = gpd.read_file("/home/daniel/Documents/grants/"
                     "geneClust/data/LCCdata/modifiedGISforApp"
                     "/LCCtrees.geojson")
-
 lccSensors = gpd.read_file("/home/daniel/Documents/grants/"
                     "geneClust/data/LCCdata/modifiedGISforApp"
                     "/LCCSensors.geojson")
-
+## Herrmann et al. sampled these trees before:
+prevTrees = [ "129.0", "317.0", "733.0", "33.0" , "513.1", "754.0",
+                "444.0", "455.0", "517.1" ]
 ##  clear up the LI/WLI difference
 lccSensors['BAUMART'] = lccSensors.BAUMART.str.replace('LI','WLI')
 ## make the unique IDs compatible:
@@ -2905,62 +2904,73 @@ lccTrees['BHD_2020'] = lccTrees['BHD_2020'].str.replace(',','.')
 lccTrees['BHD_2020'].dropna(axis='index', how='any', inplace=True)
 lccTrees['BHD_2020'] = lccTrees['BHD_2020'].astype('float64')
 ## let's make a Series for markersizes from BHD (they are too big
-## as is), and sensors around these:
+## as is)
 lccTrees['BHDmarkersize'] = lccTrees['BHD_2020'].apply(np.log10)
+## we need a separate data source for sensors, I think:
+## ring size for sensors:
 lccTrees['sensorSize'] = lccTrees['BHDmarkersize'].apply(lambda a: a*1.4)
-## plot colors 
-lccTrees['cols'] = np.repeat('#a7a7a7', lccTrees.shape[0])
-## sensor colors
-lccTrees['sensorAlpha'] = np.repeat(0,lccTrees.shape[0])
-filt = lccTrees.Tree_ID.isin(lccSensors.Name)
-lccTrees.loc[filt, 'sensorAlpha'] = '1'
-
-
-### 
-## if we want to plot all the lccTrees, and make them faded gray,
-## with hover tool
-
-
-#geosource = GeoJSONDataSource(geojson = lccTrees.to_json())
-
-lccCDS = ColumnDataSource(data=lccTrees[['Tree_ID',
-                                            'E_UTM', 
-                                            'N_UTM', 
-                                            'BHDmarkersize',
-                                            'sensorSize',
-                                            'sensorAlpha',
-                                            'cols']])
-
+## sensor df for CDS
+sensfilt = lccTrees.Tree_ID.isin(lccSensors.Name)
+sensDF = lccTrees.loc[sensfilt,:]
+## future trees are most likely trees that:
+## aren't maple, are previously-sampled, and have sensors.
+## need a list of names that are all the above:
+aa = lccTrees[~lccTrees['spec'].isin(['BAH'])].copy()
+bb = aa[aa['Tree_ID'].isin(prevTrees)].copy()
+cc = bb[bb.Tree_ID.isin(lccSensors.Name)].copy()
+cc.drop('geometry',axis='columns', inplace=True)
+mostLikelySampleAgainDF = cc
+## and now the ashes with sensors on them:
+aa = lccTrees[lccTrees['spec'].isin(['GES'])].copy()
+bb = aa[aa.Tree_ID.isin(lccSensors.Name)].copy()
+bb.drop('geometry',axis='columns', inplace=True)
+mostLikelyAshesDF = bb
+sensorCDS = ColumnDataSource(data=sensDF.drop('geometry', axis='columns'))
+mostLikelySampleAgainCDS = ColumnDataSource(data=mostLikelySampleAgainDF)
+mostLikelyAshesCDS = ColumnDataSource(data=mostLikelyAshesDF)
+lccCDS = ColumnDataSource(data=lccTrees.drop('geometry', axis='columns'))
 output_file('lccTrees2.html')
-
 p = figure (title='LCC trees ',
            plot_height=600,
             aspect_ratio=1,
             toolbar_location='below',
             tools='pan, wheel_zoom, box_zoom, reset'
            )
-
 ## laydown sensor circles
-
-sensorCircs = p.circle('E_UTM', 'N_UTM', source=lccCDS,
-                    fill_color='#0000FF',
-                    line_color='None',
+sensorCircs = p.circle('E_UTM', 'N_UTM', source=sensorCDS,
+                    fill_alpha=0,
+                    line_color='#0000FF',
+                    line_width=3,
+                    line_alpha=1,
                     radius='sensorSize',
-                    alpha='sensorAlpha',
+                    legend='sensor',
                     )
-
+## background tree circles
 trCircs = p.circle('E_UTM', 'N_UTM', source=lccCDS,
-                    fill_color='cols',
-                    line_color='black',
+                    fill_color='#a7a7a7',
                     radius='BHDmarkersize',
                     alpha=0.3,
                     )
-
+## non-maple, previously-sampled, probably soon-to-be sampled trees:
+mlsaCircs = p.circle('E_UTM', 'N_UTM', source=mostLikelySampleAgainCDS,
+                    fill_color='red',
+                    radius='BHDmarkersize',
+                    alpha=1,
+                    legend='probable resample'
+                    )
+## ashes with sensors:
+ashCircs = p.circle('E_UTM', 'N_UTM', source=mostLikelyAshesCDS,
+                    fill_color='yellow',
+                    radius='BHDmarkersize',
+                    alpha=1,
+                    legend='ash trees with sensor'
+                    )
 # Create hover tool
 p.add_tools(HoverTool(renderers = [trCircs], 
-                      tooltips = [('K','@Tree_ID')]))
-
+                      tooltips = [('K','@Tree_ID'),
+                                  ('spec','@spec'),]))
 show(p)
 
+## works, put it on a notebook, get it out
 
-
+#
