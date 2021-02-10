@@ -1,0 +1,49 @@
+I want to test the idea that the microbiome is responding with secondary metabolites to disease, by metabarcoding 
+secondary metabolites. 
+
+What do we need to adapt to this new system?
+
+In some ways, this is simpler. One bad guy (Sphaeropsis), one host species, fairly simple mycobiome. 
+
+How can we use the previous data? 
+
+Were there any individuals who did not progress in disease severity over the times sampled? - watch these trees! 
+
+Dream list: 
+
+genotype hosts (radseq?)
+
+RNAseq in twigs of various stages of infection: quantify host response, and mine for microbiome response. 
+
+Data data data - how much time do we have?
+
+
+Comparisons:
+
+Within diseased trees, compare disease/non-disease twigs
+Among trees in a disease ceneter, compare healthy and non-tree
+Among sites, compare common microbes and tree genotypes
+
+
+previous grants were canopy based, spatially explicit
+
+
+
+
+
+Is there a genome for the host? sort of: 
+https://onlinelibrary.wiley.com/doi/epdf/10.1111/eva.12809
+
+
+Is there a sphaeropis genome?
+
+Can we do a "quick" network analysis on the old data? Check for changes in the structure 
+of the fungal community
+
+PRJNA645168
+
+So generally, what are we proposing?
+
+1) Mining host transcriptome for fungal gene expression
+
+2) metabarcoding of microbiomes for secondary metabolomes 
