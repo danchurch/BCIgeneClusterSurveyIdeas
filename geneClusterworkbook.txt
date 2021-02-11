@@ -3153,10 +3153,14 @@ cooccur.sph <- cooccur(mat=lowHiDiseaseTablePA,
 ## to rerun this, individually, with the early and late disease 
 ## networks separately. 
 
-## an R batch file would look something like this:
+## the R code should look like this:
 
+####################################################
+
+## low-disease network:
 
 library('cooccur')
+
 ## I think we need OTUs as rows, sites as columns:
 lowDiseaseTablePA <- t(read.csv('lowDiseaseTablePA.csv', 
                         header=TRUE, row.names=1))
@@ -3166,4 +3170,63 @@ cooccur.sph.low <- cooccur(mat=lowDiseaseTablePA,
                           thresh=TRUE,
                           spp_names=TRUE)
 
+save(cooccur.sph.low, file='cooccur.sph.low.rda')
 
+####################################################
+
+## high-disease network:
+
+library('cooccur')
+
+## I think we need OTUs as rows, sites as columns:
+highDiseaseTablePA <- t(read.csv('highDiseaseTablePA.csv', 
+                        header=TRUE, row.names=1))
+
+cooccur.sph.high <- cooccur(mat=highDiseaseTablePA,
+                          type="spp_site",
+                          thresh=TRUE,
+                          spp_names=TRUE)
+
+save(cooccur.sph.high, file='cooccur.sph.high.rda')
+
+####################################################
+
+## let's see if we can one of these running before going 
+## to pickup kiddo. We need to go back to python
+## and do some subsetting. 
+
+## to create 'lowDiseaseTablePA.csv'
+
+lowMask = (lowHiDiseaseTablePA['lowDisease'] == 1)
+lowDiseaseTablePA = lowHiDiseaseTablePA[lowMask].drop(columns=['lowDisease', 'highDisease'])
+## any lost taxa?
+(lowDiseaseTablePA.sum(axis=0) == 0).any() ## yes, some taxa are lost
+lostTaxa = (lowDiseaseTablePA.sum(axis=0) == 0)
+notLostTaxa = ~(lostTaxa)
+lowDiseaseTablePA.loc[:,lostTaxa].shape
+lowDiseaseTablePA.loc[:,notLostTaxa].shape
+## any all zero sites?
+(lowDiseaseTablePA.sum(axis=1) == 0).any() ## nope
+## save:
+lowDiseaseTablePA.to_csv('lowDiseaseTablePA.csv')
+
+## try this out on the R code above for low disease table
+
+###### high disease table 
+
+## rinse and repeat ##
+  
+highMask = (lowHiDiseaseTablePA['highDisease'] == 1)
+highDiseaseTablePA = lowHiDiseaseTablePA[highMask].drop(columns=['lowDisease', 'highDisease'])
+## any lost taxa?
+(highDiseaseTablePA.sum(axis=0) == 0).any() ## yes, some taxa are lost
+lostTaxa = (highDiseaseTablePA.sum(axis=0) == 0)
+notLostTaxa = ~(lostTaxa)
+highDiseaseTablePA.loc[:,lostTaxa].shape
+highDiseaseTablePA.loc[:,notLostTaxa].shape
+## any all zero sites?
+(highDiseaseTablePA.sum(axis=1) == 0).any() ## nope
+## save:
+highDiseaseTablePA.to_csv('highDiseaseTablePA.csv')
+
+## and run the above cooccur code on this...all night...
