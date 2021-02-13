@@ -2988,7 +2988,14 @@ show(p)
 ## first step, can we look her otu tables in python?
 
 import pandas as pd 
+import matplotlib.pyplot as plt
+import numpy as np
+import networkx
 import openpyxl
+from bokeh.models import MultiLine, Circle, Plot
+from bokeh.io import output_file, show
+from bokeh.plotting import figure, from_networkx
+plt.ion()
 
 aa = pd.read_excel('Real_Abundance.xlsx')
 
@@ -3230,5 +3237,515 @@ highDiseaseTablePA.loc[:,notLostTaxa].shape
 highDiseaseTablePA.to_csv('highDiseaseTablePA.csv')
 
 ## and run the above cooccur code on this...all night...
+
+## okay, now what? We need an adjaceny matrix...
+## stay in R for a moment. 
+
+## right now we have highDisease network up...
+
+## goal today is to get a visualization pipeline, in bokeh
+## tomorrow network diagnostics?
+
+cooccur.sph.high
+
+str(cooccur.sph.high)
+
+head(cooccur.sph.high$results)
+
+cooccur.sph.high$results
+
+tail(cooccur.sph.high$results)
+
+## can we put an FDR=0.5 on this? 
+
+## as usual, I am a little confused, if we want to 
+## positive cooccurrence interactions, I think we want 
+
+## for instance:
+
+cooccur.sph.high$results[624486,]
+
+## otu923 and otu1074 are expected to occur 4.4 times,
+## but are observed to occur together 8 times, so 
+## this is an example of positive cooccurrence. 
+## they have a p_gt of 0.01723, and a p_lt of 0.99749
+## so it looks like small p_gt are the values to look at 
+## for likely cooccurrences, and small l_gt are values
+## to look at for negative cooccurrences.  
+## and if we want both?
+
+##################################################
+## btw, which OTU is sphaeropsis? that could be 
+## important/interesting. Have to check!!!
+
+## in the supplementary materials, it's identified
+## as OTU3. 
+
+## an interesting question is whether there were 
+## any strong negative associations with 
+## sphaeropsis
+## also we should highlight it and any fungi 
+## tightly positively associated with it in our
+## diagrams
+
+## problem - sphaeropsis is everywhere.
+## so no way to use PA to test this idea
+## hmm, how to do this...
+
+##################################################
+
+## first things first, correct the pvalues a bit:
+
+## get our results table out:
+
+cooccur.sph.high.results <- cooccur.sph.high$results 
+
+## apply bejamini-hochburg
+p_gt_adj <- p.adjust(cooccur.sph.high.results$p_gt, method = "BH")
+
+length(cooccur.sph.high.results$p_gt)
+length(p_gt_adj)
+
+sum(p_gt_adj < 0.05) ## wow, still a lot of cooccurrences
+
+## how much does this correction lose, compared to a p-value=0.5 approach?
+
+sum(cooccur.sph.high.results$p_gt < 0.05) ## oh jeez, 90,000 pos interactions
+## so yeah, stay with the simpler, higher confidence network (=BH corrected)
+
+cooccur.sph.high.results$p_gt_adj <- p_gt_adj
+
+## to get a positive cooccurrence network:
+
+posMask <- cooccur.sph.high.results$p_gt_adj <= 0.05
+
+cooccur.sph.high.pos <- cooccur.sph.high.results[posMask,]
+
+max(cooccur.sph.high.pos$p_gt) ## wow...
+## that is still a really strict correction, 0.0006 is our highest pval
+
+## how do we turn this into an adjacency matrix? for now, unweighted...
+
+## we can do this R, but I would prefer pandas, so save and head over:
+head(cooccur.sph.high.pos )
+
+write.csv(cooccur.sph.high.pos, file="cooccur_sph_high_pos_csv", row.names=FALSE)
+
+## python
+
+highPosCooc = pd.read_csv("cooccur_sph_high_pos_csv")
+
+## since we've already pared down to statistically significant 
+## positive cooccurrences, I think we really just need our two 
+## columns of species names
+
+aa = highPosCooc.loc[:,['sp1_name','sp2_name']]
+
+## now, how do we splay this out into an adjacency matrix? 
+## our columns and index names need to be the union of the two
+## columns
+
+bb = highPosCooc.loc[:,'sp1_name']
+cc = highPosCooc.loc[:,'sp2_name']
+
+len(bb)
+len(bb.unique())
+
+len(cc)
+len(cc.unique())
+
+bb.isin(cc).all() ## false
+cc.isin(bb).all() ## false
+
+## yeah, so there in otus in the first column that are not in the
+## second
+
+dd = bb.append(cc)
+
+len(dd)
+len(dd.unique())
+
+## so I think we want this:
+otus = (highPosCooc.loc[:,'sp1_name'].
+        append(highPosCooc.loc[:,'sp2_name']).
+        unique())
+
+matches = highPosCooc.loc[:,['sp1_name','sp2_name']]
+
+## this should be both our column and rownames. 
+## now how do we do our pairwise check, to see if they 
+## are matched?
+
+## we want a zero matrix with shape of otus x otus:
+aa = np.zeros(shape = (len(otus),len(otus)), dtype='int')
+## turn this into a pd dataframe
+bb = pd.DataFrame(data=aa, index = otus, columns = otus)
+## now can we move through our matches object and 
+## change 0 to 1 where we have a match?
+for _,i in matches.iterrows():
+    bb.loc[i.sp1_name,i.sp2_name] = 1
+
+## sanity checks?
+
+bb.to_csv('sanCheck.csv')
+
+bb.loc['OTU595','OTU717']
+
+matches.head()
+
+matches[matches['sp1_name'] == 'OTU595']
+
+matches[matches['sp1_name'] == 'OTU719']
+
+matches[matches['sp1_name'] == 'OTU931']
+
+## think that is okay...
+## save this
+
+bb.to_csv('highPosAdjacency.csv')
+
+highPosAdjacency = pd.read_csv('highPosAdjacency.csv', index_col=0)
+
+
+## will networkx accept this as an adjacency matrix?
+
+adj = networkx.from_pandas_adjacency(highPosAdjacency)
+
+## looks good
+
+print(networkx.info(adj))
+
+layout = networkx.spring_layout(adj)
+
+fig, ax = plt.subplots()
+## reuse our colormap 
+networkx.draw(adj,
+              layout,
+              with_labels=False,
+              ax=ax)
+
+## shitty graphic. 
+## but runs without errors. can we do this with bokeh?
+
+output_file("network.html")
+plot = figure(title="Networkx Integration Demonstration", 
+                x_range=(-1.1,1.1), 
+                y_range=(-1.1,1.1),
+                )
+graph = from_networkx(adj, networkx.fruchterman_reingold_layout, scale=2, center=(0,0))
+graph.edge_renderer.glyph = MultiLine(line_color="#CCCCCC", line_alpha=0.4, line_width=2)
+plot.renderers.append(graph)
+show(plot)
+
+## then see if we can run some network diagnostics with 
+## significance tests. 
+
+cooccur.sph.high.pos
+
+## let's start a notebook for this, eh?
+## then sum up pipeline and run for other network, the low disease network.
+
+#### low disease setup and viz  ####
+
+## get our cooccur object 
+
+
+library('cooccur')
+load('cooccur.sph.low.rda')
+cooccur.sph.low.results <- cooccur.sph.low$results 
+## back up, getting a diagram for the low disease network
+p_gt_adj <- p.adjust(cooccur.sph.low.results$p_gt, method = "BH")
+cooccur.sph.low.results['p_gt_adj'] <- p_gt_adj
+## to get a positive cooccurrence network:
+posMask <- cooccur.sph.low.results$p_gt_adj <= 0.05
+cooccur.sph.low.pos <- cooccur.sph.low.results[posMask,]
+write.csv(cooccur.sph.low.pos, file="cooccur_sph_low_pos_csv", row.names=FALSE)
+
+## to python
+lowPosCooc = pd.read_csv("cooccur_sph_low_pos_csv")
+otus = (lowPosCooc.loc[:,'sp1_name'].
+        append(lowPosCooc.loc[:,'sp2_name']).
+        unique())
+matches = lowPosCooc.loc[:,['sp1_name','sp2_name']]
+aa = np.zeros(shape = (len(otus),len(otus)), dtype='int')
+bb = pd.DataFrame(data=aa, index = otus, columns = otus)
+for _,i in matches.iterrows():
+    bb.loc[i.sp1_name,i.sp2_name] = 1
+
+bb.to_csv('lowPosAdjacency.csv')
+
+lowPosAdjacency = pd.read_csv('lowPosAdjacency.csv', index_col=0)
+
+lowAdj = networkx.from_pandas_adjacency(lowPosAdjacency)
+print(networkx.info(lowAdj))
+
+layout = networkx.spring_layout(lowAdj)
+
+fig, ax = plt.subplots()
+## reuse our colormap 
+networkx.draw(lowAdj,
+              layout,
+              with_labels=False,
+              ax=ax)
+
+## shitty graphic. 
+## but runs without errors. can we do this with bokeh?
+
+output_file("network.html")
+plot = figure(title="Low disease network", 
+                x_range=(-1.1,1.1), 
+                y_range=(-1.1,1.1),
+                )
+graph = from_networkx(lowAdj, networkx.fruchterman_reingold_layout, scale=2, center=(0,0))
+graph.edge_renderer.glyph = MultiLine(line_color="#CCCCCC", line_alpha=0.4, line_width=2)
+plot.renderers.append(graph)
+show(plot)
+
+#### combo disease setup and viz  ####
+
+## get our combo cooccur object 
+
+
+library('cooccur')
+
+load('cooccur.sph.rda')
+cooccur.sph.combo.results <- cooccur.sph$results 
+p_gt_adj <- p.adjust(cooccur.sph.combo.results$p_gt, method = "BH")
+cooccur.sph.combo.results['p_gt_adj'] <- p_gt_adj
+## to get a positive cooccurrence network:
+posMask <- cooccur.sph.combo.results$p_gt_adj <= 0.05
+cooccur.sph.combo.pos <- cooccur.sph.combo.results[posMask,]
+#write.csv(cooccur.sph.combo.pos, file="cooccur_sph_combo_pos_csv", row.names=FALSE)
+
+cooccur.sph.combo.pos.head()
+
+## to python
+comboPosCooc = pd.read_csv("cooccur_sph_combo_pos_csv")
+otus = (comboPosCooc.loc[:,'sp1_name'].
+        append(comboPosCooc.loc[:,'sp2_name']).
+        unique())
+matches = comboPosCooc.loc[:,['sp1_name','sp2_name']]
+aa = np.zeros(shape = (len(otus),len(otus)), dtype='int')
+bb = pd.DataFrame(data=aa, index = otus, columns = otus)
+for _,i in matches.iterrows():
+    bb.loc[i.sp1_name,i.sp2_name] = 1
+bb.to_csv('comboPosAdjacency.csv')
+comboPosAdjacency = pd.read_csv('comboPosAdjacency.csv', index_col=0)
+comboAdj = networkx.from_pandas_adjacency(comboPosAdjacency)
+print(networkx.info(comboAdj))
+
+layout = networkx.spring_layout(comboAdj)
+
+fig, ax = plt.subplots()
+networkx.draw(comboAdj,
+              layout,
+              with_labels=False,
+              ax=ax)
+
+## shitty graphic. 
+## but runs without errors. can we do this with bokeh?
+## I think we need this info to be established in the 
+## the networkx info. 
+
+
+output_file("network.html")
+plot = figure(title="All sample network", 
+                x_range=(-1.1,1.1), 
+                y_range=(-1.1,1.1),
+                )
+graph = from_networkx(comboAdj, networkx.fruchterman_reingold_layout, scale=2, center=(0,0))
+graph.edge_renderer.glyph = MultiLine(line_color="#CCCCCC", line_alpha=0.4, line_width=2)
+plot.renderers.append(graph)
+show(plot)
+
+
+
+## we need to be able to identify specific nodes and highlight their associations
+## specifically to get a different node color for OTU3, sphaeropsis, 
+## and for the high/low nodes, if present.
+## how do we do this?
+
+cooccur_combo_pos = pd.read_csv("cooccur_sph_combo_pos_csv")
+
+cooccur_combo_pos.head()
+
+cooccur_combo_pos.sp1_name.isin(['OTU3']).any()
+cooccur_combo_pos.sp2_name.isin(['OTU3']).any()
+## no sign of sphaeropsis. To be expected. 
+
+G = networkx.karate_club_graph()
+
+G.edges
+
+graph = from_networkx(comboAdj, networkx.fruchterman_reingold_layout, scale=2, center=(0,0))
+
+normal_color = "gray"
+highDiseaseNode_color, lowDiseaseNode_color = "black", "red"
+SphaeropsisNode_color = "blue"
+node_attrs = {}
+
+for i, _ in comboAdj.nodes(data=True):
+    if i == "OTU3":
+        node_color = SphaeropsisNode_color
+    elif i == "lowDisease":
+        node_color = lowDiseaseNode_color
+    elif i == "highDisease":
+        node_color = highDiseaseNode_color
+    else:
+        node_color = normal_color
+    node_attrs[i] = node_color
+
+networkx.set_node_attributes(comboAdj, node_attrs, "node_color")
+
+###
+
+node_attrs
+
+plot = figure(title="All sample network", 
+                x_range=(-1.1,1.1), 
+                y_range=(-1.1,1.1),
+                )
+graph = from_networkx(comboAdj, networkx.fruchterman_reingold_layout, scale=2, center=(0,0))
+graph.edge_renderer.glyph = MultiLine(line_color="#CCCCCC", line_alpha=0.4, line_width=2)
+graph.node_renderer.glyph = Circle(size=15, fill_color="node_color")
+plot.renderers.append(graph)
+
+output_file("interactive_graphs.html")
+show(plot)
+
+### network diagnostics ###
+
+## we want the following:
+
+# nestedness, check nestedtemp in vegan package:
+https://cran.r-project.org/web/packages/vegan/vegan.pdf
+# modularity looks simple enough:
+https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.community.quality.modularity.html?highlight=modularity#networkx.algorithms.community.quality.modularity 
+
+# Mean degree <k>
+# Degree distribution
+https://networkx.org/documentation/stable/reference/classes/generated/networkx.Graph.degree.html?highlight=networkx%20graph%20degree#networkx.Graph.degree
+## Average shortest path length <l>
+## just use djisktra?
+## Mean clustering coefficient <C>
+networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.cluster.average_clustering.html?highlight=mean clustering coefficient
+## Betweenness centrality <CB>
+## Closeness centrality <CC>
+https://networkx.org/documentation/stable/reference/algorithms/centrality.html
+## Indicator species for low disease and high-disease
+## this one has a built in hypothesis test, could probably run it tonight.
+
+## and we need null graphs for hypothesis tests, I think.
+## random graph generators are here:
+https://networkx.org/documentation/stable/reference/generators.html#module-networkx.generators.random_graphs
+## this might be helpful:
+https://ericmjl.github.io/Network-Analysis-Made-Simple/04-advanced/03-stats/
+## but that looks computationally really expensive...we'll see I guess. 
+
+## also any otus that are negatively associated with the 
+## disease symptoms. This means any species that are 
+## positively associated with low disease severity,
+## and possibly those that negatively associated with 
+## high disease severity. 
+
+## these are probably easily gotten:
+
+### otus associated with low disease severity:
+
+cooccur_combo_pos = pd.read_csv("cooccur_sph_combo_pos_csv")
+
+
+lowDiseaseAssociateMask = cooccur_combo_pos['sp1_name'] == 'lowDisease' 
+
+lowDisAssociates = cooccur_combo_pos[lowDiseaseAssociateMask].sp2_name
+
+## OTU194  this is an unidentified ascomycete
+## OTU726  this is an unidentified fungus, not even to phyla
+## OTU993  this is an unidentified ascomycete
+
+## great. So our most promising fungi are all unculturable and unidentifiable.
+
+## just checking, any of our second column of species?
+(cooccur_combo_pos['sp2_name'] == 'lowDisease').any()
+## nope
+
+### otus negatively associated with high disease severity. 
+
+## okay, conversely, we can look at those that are never found
+## with high disease severity. This is even more ambiguous, 
+## because they could just be "wimps" that are lost when the
+## going gets tough. Or they could be important somehow to 
+## plant health. Anyway, check it out:
+
+## back in R, need the negative cooccurrences this time:
+
+head(cooccur.sph.combo.results)
+
+cooccur.sph.combo.results
+
+p_lt_adj <- p.adjust(cooccur.sph.combo.results$p_lt, method = "BH")
+
+cooccur.sph.combo.results['p_lt_adj'] <- p_lt_adj
+
+negMask <- cooccur.sph.combo.results$p_lt_adj <= 0.05
+
+aa <- cooccur.sph.combo.results[negMask,]
+
+## and nothing. only the node "lowDisease" is negatively
+## associated with anything, and that is "highDisease"
+
+## so negative associations are really found much after
+## correcting for multiple tests. 
+
+
+
+### indicator species ###
+
+## we can check our disease classes for indicator species, also...
+## seems like the best way to do this is to do by diease 
+## classes?
+
+## in R:
+library(indicspecies)
+
+## our community matrix will be the all OTU-table, minus
+## the treatment columns
+
+aa <- read.csv('lowHiDiseaseTablePA.csv')
+aa <- aa[,4:ncol(aa)]
+
+bb <-read.csv('eevaOTU.csv')$Diseaseclass
+
+
+## aa is our community matrix, but I think we need to transpose it?
+## actually doesn't look like it
+
+## what indicators do we want to hunt down?
+
+## start with all disease classes. It should naturally
+## find our low disease (0-2) and high disease (3-5) 
+## combinations without us asking it to, with the 
+## multipatt command:
+
+habIndSpp <- multipatt(aa, bb, func = 'r.g', control=how(nperm=9999))
+
+## using r.g function includes a correction for multiple comparisons,
+## so don't go farther with a BH.
+
+cc <- habIndSpp$sign
+
+cc[cc$p.value <= 0.05,]
+
+
+
+## 
+
+
+
+## we have to be strategic, however. I'm not trying to publish a 
+## paper (yet), I'm trying to write a grant proposal. I also promised 
+## to deliver some interesting network diagnostics. 
+
+## In just a few days...
 
 
