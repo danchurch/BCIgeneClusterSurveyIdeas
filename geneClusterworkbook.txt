@@ -2989,8 +2989,10 @@ show(p)
 
 import pandas as pd 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import numpy as np
-import networkx
+import networkx, random
+from networkx.algorithms import community
 import openpyxl
 from bokeh.models import MultiLine, Circle, Plot
 from bokeh.io import output_file, show
@@ -3459,10 +3461,10 @@ cooccur.sph.low.results['p_gt_adj'] <- p_gt_adj
 ## to get a positive cooccurrence network:
 posMask <- cooccur.sph.low.results$p_gt_adj <= 0.05
 cooccur.sph.low.pos <- cooccur.sph.low.results[posMask,]
-write.csv(cooccur.sph.low.pos, file="cooccur_sph_low_pos_csv", row.names=FALSE)
+write.csv(cooccur.sph.low.pos, file="cooccur_sph_low_pos.csv", row.names=FALSE)
 
 ## to python
-lowPosCooc = pd.read_csv("cooccur_sph_low_pos_csv")
+lowPosCooc = pd.read_csv("cooccur_sph_low_pos.csv")
 otus = (lowPosCooc.loc[:,'sp1_name'].
         append(lowPosCooc.loc[:,'sp2_name']).
         unique())
@@ -3652,8 +3654,7 @@ https://ericmjl.github.io/Network-Analysis-Made-Simple/04-advanced/03-stats/
 
 ### otus associated with low disease severity:
 
-cooccur_combo_pos = pd.read_csv("cooccur_sph_combo_pos_csv")
-
+cooccur_combo_pos = pd.read_csv("cooccur_sph_combo_pos.csv")
 
 lowDiseaseAssociateMask = cooccur_combo_pos['sp1_name'] == 'lowDisease' 
 
@@ -3697,7 +3698,20 @@ aa <- cooccur.sph.combo.results[negMask,]
 ## so negative associations are really found much after
 ## correcting for multiple tests. 
 
+### positive associations with high disease state
 
+## finally, just curious, are there other species 
+## associated with the high disease state besides 
+## sphaeropsis?
+
+cooccur_combo_pos = pd.read_csv("cooccur_sph_combo_pos.csv")
+
+highDiseaseAssociateMask = cooccur_combo_pos['sp1_name'] == 'highDisease' 
+
+highDisAssociates = cooccur_combo_pos[highDiseaseAssociateMask].sp2_name
+
+## OTU709 Phaeosphaeria sp., So another pathogen? 
+## OTU343 Fungus sp., basically unidentified
 
 ### indicator species ###
 
@@ -3729,6 +3743,10 @@ bb <-read.csv('eevaOTU.csv')$Diseaseclass
 
 habIndSpp <- multipatt(aa, bb, func = 'r.g', control=how(nperm=9999))
 
+diseaseClassIndSpp <- habIndSpp
+
+save(diseaseClassIndSpp, file='diseaseClassIndSpp.rda')
+
 ## using r.g function includes a correction for multiple comparisons,
 ## so don't go farther with a BH.
 
@@ -3736,16 +3754,485 @@ cc <- habIndSpp$sign
 
 cc[cc$p.value <= 0.05,]
 
+summary(diseaseClassIndSpp)
 
-
-## 
-
-
+### NMS of disease class ###
 
 ## we have to be strategic, however. I'm not trying to publish a 
 ## paper (yet), I'm trying to write a grant proposal. I also promised 
 ## to deliver some interesting network diagnostics. 
 
 ## In just a few days...
+
+## anyway, noisy data, how do the NMSes look?
+
+library(vegan)
+library(RColorBrewer)
+
+nms <- metaMDS(aa, try=40)
+
+stressplot(nms)
+
+## wow, that actually looks really good, stress =.10, strong R2
+
+## okay, how do we plot the disease groups?
+
+eevaOTU <- read.csv('eevaOTU.csv')
+colrs <- brewer.pal(6, "Set1")
+nmsInfo <- data.frame(XX=numeric(length=95),YY=numeric(length=95))
+nmsInfo$XX <- nms$points[,'MDS1']
+nmsInfo$YY <- nms$points[,'MDS2']
+nmsInfo$diseaseColor <- colrs[eevaOTU$Diseaseclass+1]
+nmsInfo$diseaseClass <- eevaOTU$Diseaseclass
+
+
+par(mfrow=c(1,2))
+#par(mfrow=c(1,1))
+plot(nmsInfo$XX, nmsInfo$YY,
+    col=nmsInfo$diseaseColor,
+    pch=19,
+    cex=2.0,
+)
+ordihull(nms, 
+    nmsInfo$diseaseColor, 
+    #nmsInfo$diseaseClass, 
+    #show.groups=c(1,6),
+    col=names(table(nmsInfo$diseaseColor)),
+    lwd=3,
+)
+orderCs <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33")
+legend( x='bottomleft',
+        legend = 0:5,
+        fill = orderCs,
+        col = orderCs,
+        cex = 1.0,
+        )
+text(nmsInfo$XX, nmsInfo$YY, nmsInfo$diseaseClass)
+plot(nmsInfo$XX, nmsInfo$YY,
+    col=nmsInfo$diseaseColor,
+    pch=19,
+    cex=2.0,
+    xlim=c(-0.4,0.0),
+    ylim=c(-0.2,0.2),
+)
+ordihull(nms, 
+    nmsInfo$diseaseColor, 
+    #show.groups=c(1,6),
+    col=names(table(nmsInfo$diseaseColor)),
+    lwd=3,
+)
+## add a legend
+legend( x='bottomleft',
+        legend = 0:5,
+        fill = orderCs,
+        col = orderCs,
+        cex = 1.0,
+        )
+text(nmsInfo$XX, nmsInfo$YY, nmsInfo$diseaseClass)
+
+## did that work? 
+
+names(table(nmsInfo$diseaseColor))
+
+
+## and if we just group by high/low disease?
+
+par(mfrow=c(1,1))
+plot(nmsInfo$XX, nmsInfo$YY,
+    col=nmsInfo$diseaseColor,
+    pch=19,
+    cex=2.0,
+)
+#hulls <- ordihull(nms, 
+#    nmsInfo$diseaseColor, 
+#    #nmsInfo$diseaseClass, 
+#    #show.groups=c(1,6),
+#    col=names(table(nmsInfo$diseaseColor)),
+#    lwd=3,
+)
+hulls <- ordihull(nms, 
+    nmsInfo$diseaseColor, 
+    #nmsInfo$diseaseClass, 
+    #show.groups=c(1,6),
+    col=names(table(nmsInfo$diseaseColor)),
+    lwd=3,
+)
+orderCs <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33")
+legend( x='bottomleft',
+        legend = 0:5,
+        fill = orderCs,
+        col = orderCs,
+        cex = 1.0,
+        )
+text(nmsInfo$XX, nmsInfo$YY, nmsInfo$diseaseClass)
+points(summary(hulls)['NMDS1',],summary(hulls)['NMDS2',], col=colnames(summary(hulls)), pch=19, cex=10, bg=colnames(summary(hulls)))
+
+## not a clear story, because class 3 and 4 don't behave like you would expect.
+## not 
+
+## does the permanova say anything about this?
+
+aa <- read.csv('lowHiDiseaseTablePA.csv')
+lowhi <- aa$lowDisease
+aa <- aa[,4:ncol(aa)]
+bb <-read.csv('eevaOTU.csv')$Diseaseclass
+permDC <- adonis(aa ~ bb)
+permLH <- adonis(aa ~ lowhi)
+
+## what if we subset to just class 0 and class 5?
+
+onlyGoodBadFilter = bb == 0 | bb == 5 
+
+onlyGoodBad <- aa[onlyGoodBadFilter,]
+
+onesFives <- bb[onlyGoodBadFilter]
+
+permGoodBad <- adonis(onlyGoodBad ~ onesFives)
+
+
+## just to check, rda:
+
+spp=decostand(aa,method = "hellinger")#Convert response variables
+uu=rda(spp,bb)#RDA Analysis
+anova(uu)
+
+## well, almost statistically significant (p=0.06) but only explaining 
+## like 0.5% of the variation in the data.
+
+## and just the 0s and 5s?
+spp=decostand(onlyGoodBad,method = "hellinger")#Convert response variables
+uu=rda(onlyGoodBad,onesFives)#RDA Analysis
+anova(uu)
+
+## huh, not much to work with there. 
+## too noisy. I can stare at the NMS and imagine 
+## some patterns, but not going to get anywhere 
+## with this right now.  
+## We have indicator species and 
+## cooccurrence 
+
+
+## so to finish up, we need to look at the network architecture. 
+## long night on this, probably. 
+
+## back to networkx in python
+
+##### network stats ####
+
+## okay, start over, get our network objects into place
+
+## can we get all of the above metrics for our two networks?
+
+## what are our null hypotheses? 
+
+## what are the chances of getting the same statistic, in 
+## a network with the same number of nodes, same number of 
+## edges, but randomly distributed edges?
+
+## our lowDisease network:
+lowPosAdjacency = pd.read_csv('lowPosAdjacency.csv', index_col=0)
+lowAdj = networkx.from_pandas_adjacency(lowPosAdjacency)
+
+## our highDisease network:
+highPosAdjacency = pd.read_csv('highPosAdjacency.csv', index_col=0)
+highAdj = networkx.from_pandas_adjacency(highPosAdjacency)
+
+### nestedness
+
+## um, where to do this?
+## there is a package that proposes to do this in R (MBI):
+## the paper for the index wnodf is:
+
+## Almeida-Neto M, Ulrich W (2011) A straightforward computational approach for measuring nest-edness using quantitative matrices. Environmental Modelling and Software, 26, 173-178
+
+## in R:
+
+library(MBI)
+
+lowHiPA <- read.csv('lowHiDiseaseTablePA.csv')
+lowPA <- lowHiPA[lowHiPA$lowDisease == 1,4:ncol(lowHiPA)]
+highPA <- lowHiPA[lowHiPA$highDisease == 1,4:ncol(lowHiPA)]
+
+wnodf(lowPA) ## 38.33365
+#lowPawnodf = wnodf(lowPA) ## 38.33365
+
+highPawnodf = wnodf(highPA) ## 43.06346 
+## so slightly higher nestedness, but not dramatic. 
+
+### modularity 
+## have to get communities first. Not sure what algorithm works best...
+## try the "Clauset-Newman-Moore greedy modularity maximization" algorithm:
+
+lowAdj_communities_generator = community.greedy_modularity_communities(lowAdj)
+lowAdj_communities = list(lowAdj_communities_generator)
+
+len(lowAdj_communities)
+## 18 communities in low
+
+highAdj_communities_generator = community.greedy_modularity_communities(highAdj)
+highAdj_communities = list(highAdj_communities_generator)
+
+len(highAdj_communities)
+## 24 communities in high
+
+## are any of these communities the same?
+
+[ i in highAdj_communities for i in lowAdj_communities ]
+[ i in lowAdj_communities for i in highAdj_communities ]
+## nope. not surprising.
+
+## I think we can use these to measure modularity:
+aa = community.modularity(lowAdj, lowAdj_communities)
+## 0.221
+
+bb = community.modularity(highAdj, highAdj_communities)
+## 0.249
+
+## not sure how to decide if these differences are meangingful.
+
+### Mean degree <k>
+
+lowAdj.number_of_edges() / lowAdj.number_of_nodes() * 2
+## 29.6
+
+highAdj.number_of_edges() / highAdj.number_of_nodes() * 2
+## 21.9
+
+## this is pretty easy, but should stay 
+## the same under our null hypothesis, I think,
+## because we are going to hold the number of 
+## edges and nodes constant. We are just going 
+## to mix up the associations, who is tied to who. 
+
+### Degree distribution
+
+fig, ax = plt.subplots(2, sharex=True)
+lowAdjdegreez = [ i[1] for i in lowAdj.degree ]
+ax[0].hist(lowAdjdegreez, log=False, bins=len(lowAdjdegreez))
+ax[0].set_title('low disease network')
+highAdjdegreez = [ i[1] for i in highAdj.degree ]
+ax[1].hist(highAdjdegreez, log=False, bins=len(highAdjdegreez))
+ax[1].set_title('high disease network')
+fig.suptitle('degree distributions')
+
+## lowAdj has longer, fatter tail
+## looks scale free. is there are way to make a 
+## summary stat from this? not sure. don't do that right now
+
+## can we find our most connected nodes? 
+
+lowAdj.degree['OTU250']
+
+aa = list(lowAdj.degree)
+bb = list(zip(*aa))
+cc = pd.Series(bb[1], index=bb[0])
+cc[cc == cc.max()]
+## otu250, ## 217 connections
+highAdj.degree['OTU250']
+## also common in the high-network, with 150 edges
+
+## checking our low-associated fungi
+lowAdj.degree['OTU194'] ## only 1 association
+lowAdj.degree['OTU726'] ## not in there. Must be another lone wolf or ubiquitous
+lowAdj.degree['OTU993'] ## 32 associations, social
+
+aa = list(highAdj.degree)
+bb = list(zip(*aa))
+cc = pd.Series(bb[1], index=bb[0])
+cc[cc == cc.max()]
+## otu352, 171 edges
+lowAdj.degree['OTU352']
+## also common in the low-network, with 194 edges
+
+## checking the high-associates:
+highAdj.degree['OTU709'] ## nada, lone wolf or ubiquitous. Interesting, this is Phaeospharia
+highAdj.degree['OTU343'] ## 5 
+
+## lots to do. not enough time. 
+### Average shortest path length <l>
+
+print(networkx.average_shortest_path_length(lowAdj))
+print(networkx.average_shortest_path_length(highAdj))
+
+## these don't work, because there are nodes that are 
+## completely isolated from each other, I think.
+## i.e. not connected
+
+### Mean clustering coefficient <C>
+np.mean(list(networkx.clustering(lowAdj).values()))
+np.mean(list(networkx.clustering(highAdj).values()))
+
+### Betweenness centrality <CB>
+cbLow = np.mean(list(networkx.betweenness_centrality(lowAdj).values()))
+cbHigh = np.mean(list(networkx.betweenness_centrality(highAdj).values()))
+print("low disease betweenness centrality = " + str(cbLow))
+print("Betweenness centrality = " + str(cbHigh))
+
+### Closeness centrality <CC>
+ccLow = np.mean(list(networkx.closeness_centrality(lowAdj).values()))
+ccHigh = np.mean(list(networkx.closeness_centrality(highAdj).values()))
+print("low disease closeness centrality = " + str(ccLow))
+print("high disease closeness centrality = " + str(ccHigh))
+
+### Indicator species for low disease and high-disease
+## checked above
+
+#### Random networks / Null dists ####
+
+## how do we develop random networks? 
+
+## one random network with the same number of  
+## cooccurrences
+
+## we can use the random graph generator in networkx 
+
+## for our probability edge generation, 
+
+networkx.generators.random_graphs.gnp_random_graph
+
+networkx.generators.random_graphs.gnp_random_graph(
+
+## meh, wait on this. This needs some thought. Useful 
+## for publication We need to write something up for 
+## Dr. Terhonen. 
+
+## we still have a structured network, in both high and
+## low disease cases, but the players in each are 
+## changing out a bit. 
+## our biggest results are changes in the communities, 
+## the differing indicator species
+
+## seems like the best thing to do is to look for a way 
+## to illustrate the changes in the communities/modules
+
+## how to do this?
+
+## back to networkx/bokeh...
+
+## we want each community to have its own colors
+
+lowAdj_communities
+
+## okay, so we have two tasks
+## 1 turn the community memberships into a single column array 
+## that describes each OTU's community
+## 2 use this to color our network diagrams
+
+## 1 
+
+lowPosAdjacency = pd.read_csv('lowPosAdjacency.csv', index_col=0)
+lowAdj = networkx.from_pandas_adjacency(lowPosAdjacency)
+
+lowAdj_communities
+
+gm,gn = [],[]
+for i,j in enumerate(lowAdj_communities):
+    gn += [i]*len(j)
+    gm += list(j)
+
+gnum = pd.Series(gn, index=gm)
+gnum.index.duplicated().any() ## no duplicate OTUs, that's good.
+
+## now we need to embed this group membership as an attribute of a node:
+
+for i in lowAdj.nodes:
+    lowAdj.nodes[i]['comGroup'] = gnum[i] 
+
+
+## we need some colors:
+def genXKCDColors(nu):
+    Xcolors = random.choices(list(mcolors.XKCD_COLORS.values()), k=nu)
+    cmap = mcolors.ListedColormap(Xcolors)
+    return(cmap)
+
+colmap = genXKCDColors(len(lowAdj_communities))
+
+node_attrs = {}
+for node in lowAdj.nodes(data=False):
+    node_color = colmap.colors[lowAdj.nodes[node]['comGroup']]
+    node_attrs[node] = node_color
+
+networkx.set_node_attributes(lowAdj, node_attrs, "node_color")
+
+## now use this color attribute with bokeh:
+
+plot = figure(title="Low Disease Network",
+                x_range=(-1.1,1.1),
+                y_range=(-1.1,1.1),
+                )
+
+#graph = from_networkx(lowAdj, networkx.fruchterman_reingold_layout, scale=2, center=(0,0))
+graph = from_networkx(lowAdj, networkx.kamada_kawai_layout, scale=2, center=(0,0))
+graph.edge_renderer.glyph = MultiLine(line_color="#CCCCCC", line_alpha=0.4, line_width=2)
+graph.node_renderer.glyph = Circle(size=15, fill_color="node_color")
+plot.renderers.append(graph)
+output_file("interactive_graphs.html")
+show(plot)
+
+# Show with Bokeh
+
+
+graph_renderer.node_renderer.glyph = Circle(size=15, fill_color=Spectral4[0])
+graph_renderer.edge_renderer.glyph = MultiLine(line_color="edge_color", line_alpha=0.8, line_width=1)
+plot.renderers.append(graph_renderer)
+output_file("interactive_graphs.html")
+show(plot)
+
+
+### community colors with high adj ###
+
+highPosAdjacency = pd.read_csv('highPosAdjacency.csv', index_col=0)
+highAdj = networkx.from_pandas_adjacency(highPosAdjacency)
+
+highAdj_communities
+len(highAdj_communities)
+
+gm,gn = [],[]
+for i,j in enumerate(highAdj_communities):
+    gn += [i]*len(j)
+    gm += list(j)
+
+gnum = pd.Series(gn, index=gm)
+gnum.index.duplicated().any() ## no duplicate OTUs, that's good.
+
+## now we need to embed this group membership as an attribute of a node:
+
+for i in highAdj.nodes:
+    highAdj.nodes[i]['comGroup'] = gnum[i] 
+
+## we need some colors:
+
+colmap = genXKCDColors(len(highAdj_communities))
+
+node_attrs = {}
+for node in highAdj.nodes(data=False):
+    node_color = colmap.colors[highAdj.nodes[node]['comGroup']]
+    node_attrs[node] = node_color
+
+networkx.set_node_attributes(highAdj, node_attrs, "node_color")
+
+## now use this color attribute with bokeh:
+
+
+plot = figure(title="High Disease Network",
+                x_range=(-1.1,1.1),
+                y_range=(-1.1,1.1),
+                )
+#graph = from_networkx(highAdj, networkx.spring_layout, scale=2, center=(0,0)) ## not bad, kawai is better
+#graph = from_networkx(highAdj, networkx.circular_layout, scale=2, center=(0,0)) ## nope
+graph = from_networkx(highAdj, networkx.kamada_kawai_layout, scale=2, center=(0,0)) ## nice one
+#graph = from_networkx(highAdj, networkx.planar_layout, scale=2, center=(0,0)) ## not possible
+#graph = from_networkx(highAdj, networkx.random_layout, center=(0,0)) ## horrible, as expected
+#graph = from_networkx(highAdj, networkx.shell_layout, scale=2, center=(0,0)) ## same as circle, sucks
+#graph = from_networkx(highAdj, networkx.spectral_layout, scale=2, center=(0,0)) ## nope
+#graph = from_networkx(highAdj, networkx.spiral_layout, scale=2, center=(0,0)) ## pretty and useless
+#graph = from_networkx(highAdj, networkx.multipartite_layout, scale=2, center=(0,0)) ## doesn't work
+graph.edge_renderer.glyph = MultiLine(line_color="#CCCCCC", line_alpha=0.4, line_width=2)
+graph.node_renderer.glyph = Circle(size=15, fill_color="node_color")
+plot.renderers.append(graph)
+output_file("interactive_graphs.html")
+show(plot)
+
+## great. do both with the kamada_kawai style, in a notebook. 
 
 
