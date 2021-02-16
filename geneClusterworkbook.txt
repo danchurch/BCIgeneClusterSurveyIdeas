@@ -2997,6 +2997,7 @@ import openpyxl
 from bokeh.models import MultiLine, Circle, Plot
 from bokeh.io import output_file, show
 from bokeh.plotting import figure, from_networkx
+from matplotlib_venn import venn2
 plt.ion()
 
 aa = pd.read_excel('Real_Abundance.xlsx')
@@ -3750,9 +3751,21 @@ save(diseaseClassIndSpp, file='diseaseClassIndSpp.rda')
 ## using r.g function includes a correction for multiple comparisons,
 ## so don't go farther with a BH.
 
-cc <- habIndSpp$sign
+load('diseaseClassIndSpp.rda')
+
+str(diseaseClassIndSpp)
+
+summary(diseaseClassIndSpp)
+
+diseaseClassIndSpp
+
+cc <- diseaseClassIndSpp$sign
 
 cc[cc$p.value <= 0.05,]
+
+dd <- cc[cc$p.value <= 0.08,]
+
+ee <- dd[complete.cases(dd),]
 
 summary(diseaseClassIndSpp)
 
@@ -3955,8 +3968,16 @@ highPA <- lowHiPA[lowHiPA$highDisease == 1,4:ncol(lowHiPA)]
 
 wnodf(lowPA) ## 38.33365
 #lowPawnodf = wnodf(lowPA) ## 38.33365
-
 highPawnodf = wnodf(highPA) ## 43.06346 
+
+highPawnodf$row
+
+as.character(highPawnodf$row)
+
+print("low disease nestedness (WNODF) = " + str(wnodf(lowPA)))
+
+print(paste("high disease nestedness (WNODF) =",as.character(highPawnodf$row)))
+
 ## so slightly higher nestedness, but not dramatic. 
 
 ### modularity 
@@ -3968,14 +3989,31 @@ lowAdj_communities = list(lowAdj_communities_generator)
 
 len(lowAdj_communities)
 ## 18 communities in low
+[ len(i) for i in lowAdj_communities ]
+
+
 
 highAdj_communities_generator = community.greedy_modularity_communities(highAdj)
 highAdj_communities = list(highAdj_communities_generator)
 
 len(highAdj_communities)
 ## 24 communities in high
+[ len(i) for i in highAdj_communities ]
 
-## are any of these communities the same?
+
+plt.close('all')
+fig, axes = plt.subplots(2)
+axes[0].bar(range(0,len(lowAdj_communities)), [ len(i) for i in lowAdj_communities ], color='blue')
+axes[0].set_title('Communities/Modules in low-disease samples')
+axes[1].bar(range(0,len(highAdj_communities)), [ len(i) for i in highAdj_communities ], color='red')
+axes[1].set_title('Communities/Modules in high-disease samples')
+plt.tight_layout()
+
+
+
+[ i in lowAdj_communities for i in highAdj_communities ]
+
+## are any of these communities exactly the same?
 
 [ i in highAdj_communities for i in lowAdj_communities ]
 [ i in lowAdj_communities for i in highAdj_communities ]
@@ -4027,6 +4065,8 @@ aa = list(lowAdj.degree)
 bb = list(zip(*aa))
 cc = pd.Series(bb[1], index=bb[0])
 cc[cc == cc.max()]
+lowAdjDeg = cc.sort_values(ascending=False)
+
 ## otu250, ## 217 connections
 highAdj.degree['OTU250']
 ## also common in the high-network, with 150 edges
@@ -4040,6 +4080,7 @@ aa = list(highAdj.degree)
 bb = list(zip(*aa))
 cc = pd.Series(bb[1], index=bb[0])
 cc[cc == cc.max()]
+highAdjDeg = cc.sort_values(ascending=False)
 ## otu352, 171 edges
 lowAdj.degree['OTU352']
 ## also common in the low-network, with 194 edges
@@ -4048,7 +4089,23 @@ lowAdj.degree['OTU352']
 highAdj.degree['OTU709'] ## nada, lone wolf or ubiquitous. Interesting, this is Phaeospharia
 highAdj.degree['OTU343'] ## 5 
 
+
+highAdj.degree['OTU250']
+lowAdj.degree['OTU250']
+
+## in general, can we get the 100 or so topmost-connected OTUS from each 
+## network and see how much overlap there is?
 ## lots to do. not enough time. 
+
+highAdjDeg
+
+highAdjDeg[0:100].index
+
+
+lowAdjDeg
+
+lowAdjDeg[0:100].index
+
 ### Average shortest path length <l>
 
 print(networkx.average_shortest_path_length(lowAdj))
@@ -4236,3 +4293,44 @@ show(plot)
 ## great. do both with the kamada_kawai style, in a notebook. 
 
 
+## venn diagrams
+
+
+
+## one way to measure the change in network structure is by 
+## comparing how the networks changed in terms of high-degree
+## nodes. 
+
+
+venn2([
+    set(highAdjDeg[0:200].index),
+    set(lowAdjDeg[0:200].index)
+])
+
+## and how do our OTUs compare generally? How many OTUs are 
+## shared between low and high disease samples?
+
+
+## low
+lowHiDiseaseTablePA = pd.read_csv('lowHiDiseaseTablePA.csv', index_col=0)
+aa = lowHiDiseaseTablePA[lowHiDiseaseTablePA['lowDisease'] == 1]
+(aa.sum(axis=0) == 0).any()
+(aa.sum(axis=0) == 0).sum()
+lowDiseaseAllColumns = aa.loc[:,~(aa.sum(axis=0) == 0)].columns
+
+## high
+lowHiDiseaseTablePA = pd.read_csv('lowHiDiseaseTablePA.csv', index_col=0)
+aa = lowHiDiseaseTablePA[lowHiDiseaseTablePA['highDisease'] == 1]
+(aa.sum(axis=0) == 0).any()
+(aa.sum(axis=0) == 0).sum()
+highDiseaseAllColumns = aa.loc[:,~(aa.sum(axis=0) == 0)].columns
+
+venn2([
+    set(highDiseaseAllColumns),
+    set(lowDiseaseAllColumns)
+])
+
+## Though both graphs show similar general membership,
+##  connectedness, clustering, their is a clear shift in the OTUs that 
+## are providing the hubs for the network, and the communities/modules
+## that are forming are different.  
