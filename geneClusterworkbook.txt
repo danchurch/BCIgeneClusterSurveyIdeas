@@ -2998,6 +2998,10 @@ from bokeh.models import MultiLine, Circle, Plot
 from bokeh.io import output_file, show
 from bokeh.plotting import figure, from_networkx
 from matplotlib_venn import venn2
+from matplotlib_venn import venn3
+
+import matplotlib_venn
+
 plt.ion()
 
 aa = pd.read_excel('Real_Abundance.xlsx')
@@ -3712,6 +3716,13 @@ highDiseaseAssociateMask = cooccur_combo_pos['sp1_name'] == 'highDisease'
 highDisAssociates = cooccur_combo_pos[highDiseaseAssociateMask].sp2_name
 
 ## OTU709 Phaeosphaeria sp., So another pathogen? 
+
+## is this abundant?
+eeavaOTU = pd.read_csv('eevaOTU.csv')
+eeavaOTU.loc[:,'OTU709'].sum()
+list(eeavaOTU.loc[:,'OTU709'])
+## not really, but it is persistent
+
 ## OTU343 Fungus sp., basically unidentified
 
 ### indicator species ###
@@ -4090,6 +4101,8 @@ highAdj.degree['OTU709'] ## nada, lone wolf or ubiquitous. Interesting, this is 
 highAdj.degree['OTU343'] ## 5 
 
 
+
+
 highAdj.degree['OTU250']
 lowAdj.degree['OTU250']
 
@@ -4176,9 +4189,13 @@ lowAdj_communities
 ## 2 use this to color our network diagrams
 
 ## 1 
-
+## rebuild our communities:
 lowPosAdjacency = pd.read_csv('lowPosAdjacency.csv', index_col=0)
 lowAdj = networkx.from_pandas_adjacency(lowPosAdjacency)
+lowAdj_communities_generator = community.greedy_modularity_communities(lowAdj)
+lowAdj_communities = list(lowAdj_communities_generator)
+
+len(lowAdj_communities)
 
 lowAdj_communities
 
@@ -4187,13 +4204,13 @@ for i,j in enumerate(lowAdj_communities):
     gn += [i]*len(j)
     gm += list(j)
 
-gnum = pd.Series(gn, index=gm)
-gnum.index.duplicated().any() ## no duplicate OTUs, that's good.
+lowGnum = pd.Series(gn, index=gm)
+lowGnum.index.duplicated().any() ## no duplicate OTUs, that's good.
 
 ## now we need to embed this group membership as an attribute of a node:
 
 for i in lowAdj.nodes:
-    lowAdj.nodes[i]['comGroup'] = gnum[i] 
+    lowAdj.nodes[i]['comGroup'] = lowGnum[i] 
 
 
 ## we need some colors:
@@ -4240,8 +4257,11 @@ show(plot)
 
 highPosAdjacency = pd.read_csv('highPosAdjacency.csv', index_col=0)
 highAdj = networkx.from_pandas_adjacency(highPosAdjacency)
+highAdj_communities_generator = community.greedy_modularity_communities(highAdj)
+highAdj_communities = list(highAdj_communities_generator)
 
 highAdj_communities
+
 len(highAdj_communities)
 
 gm,gn = [],[]
@@ -4249,13 +4269,13 @@ for i,j in enumerate(highAdj_communities):
     gn += [i]*len(j)
     gm += list(j)
 
-gnum = pd.Series(gn, index=gm)
-gnum.index.duplicated().any() ## no duplicate OTUs, that's good.
+highGnum = pd.Series(gn, index=gm)
+highGnum.index.duplicated().any() ## no duplicate OTUs, that's good.
 
 ## now we need to embed this group membership as an attribute of a node:
 
 for i in highAdj.nodes:
-    highAdj.nodes[i]['comGroup'] = gnum[i] 
+    highAdj.nodes[i]['comGroup'] = highGnum[i] 
 
 ## we need some colors:
 
@@ -4334,3 +4354,184 @@ venn2([
 ##  connectedness, clustering, their is a clear shift in the OTUs that 
 ## are providing the hubs for the network, and the communities/modules
 ## that are forming are different.  
+
+## is there a way to look at these modules? How can we see how they are
+
+## changing?
+
+## we want to see how OTUs are shifting their community membership
+## in response to the disease state. What is the way to represent this?
+
+## a crude nms, where each of the communities is a row, might show 
+## something like what we need
+
+## hierarcical clustering might also be good here. Try them both.
+
+lowHiDiseaseTablePA.head()
+
+## we need a filter describing which module each of these otus is in, in the 
+## network analysis of the low-disease state. Where is this data?
+
+## I think we forgot to save it. Have to rebuild it above
+## which gives us:
+
+lowGnum
+
+highGnum
+
+## how many unshared OTUs are there?
+
+sum(lowGnum.index.isin(highGnum.index))
+lowGnum.shape
+## 588 shared out,  184 unique to low disease (772 total)
+
+sum(highGnum.index.isin(lowGnum.index))
+highGnum.shape
+## 588 shared out, 100 unique to high disease (688 total)
+
+## index names for these?
+
+## we need a combined matrix of both low and high-disease data, with all OTUs, 
+## each module is a row. 
+
+## to make one matrix:
+
+aa = pd.get_dummies(lowGnum).T
+commsLow = 'low' + aa.index.astype('str') 
+## add low/high designation
+aa.insert(0,"disease",["low"]*aa.shape[0])
+aa.index = commsLow
+
+bb = pd.get_dummies(highGnum).T
+commsHigh = 'high' + bb.index.astype('str') 
+bb.insert(0,"disease",["high"]*bb.shape[0])
+bb.index = commsHigh
+cc= pd.concat([aa,bb]).fillna(0)
+
+## looks good, some sanity checks
+aa.columns.isin(cc.columns).all()
+bb.columns.isin(cc.columns).all()
+
+## all shared columns should not have
+## more than 2 communites (one low and one high) 
+
+shared = aa.columns[aa.columns.isin(bb.columns)]
+dd = cc.loc[:,shared].drop(columns='disease')
+(dd.sum(axis=0) == 2).all()
+
+## and nonshared should sum to one:
+nonshared = aa.columns[~aa.columns.isin(bb.columns)]
+dd = cc.loc[:,nonshared]
+(dd.sum(axis=0) == 1).all()
+## looks okay then
+
+#cc.to_csv('module_comparison.csv')
+module_comparison = pd.read_csv('module_comparison.csv', index_col=0)
+
+## and in R, can we run the NMS?:
+
+library(vegan)
+
+module_comparison = read.csv('module_comparison.csv', row.names=1)
+aa <- module_comparison[,-1]
+
+aa[1:3,1:10]
+
+rowSums(aa)
+
+module_comparison[1:3,1:10]
+
+nms = metaMDS(aa)
+
+col=as.numeric(module_comparison[,1]),
+
+## hmm, probably not enough data for this. But let's look at it:
+
+plot(nms$points[,'MDS1'],
+    nms$points[,'MDS2'], 
+    col=colrs,
+    pch=19,
+    cex=log(rowSums(aa)),
+    xlim=c(-0.1055,-0.104),
+    ylim=c(-0.0145,-0.0125),
+    )
+text(bigModules[,'MDS1'], 
+    bigModules[,'MDS2'], 
+    row.names(bigModules),
+    pos=1,
+    offset=1,
+    )
+
+
+## circles around our most important ones?
+bigModules = nms$points[names(rowSums(aa)[rowSums(aa) > 20]),]
+points(bigModules[,'MDS1'], bigModules[,'MDS2'], cex=2, col='blue')
+
+
+## size of circles correlated to number of OTUs in community?
+
+
+bigModules = nms$points[names(rowSums(aa)[rowSums(aa) > 20]),]
+
+
+
+any(colSums(aa[c('low0','low1'),]) > 0)
+any(colSums(aa[c('low0','low1'),]) > 1)
+
+
+## yeah. these have no shared species. How can they be in anyway close to 
+## each other? shared zeroes?
+
+## answer - the bray curtis diss among them must be = 100%, but then they are
+## pulled around by their partial similarities to the communities of the 
+## other treatment 
+
+## two things, then you got to start writing
+
+## (1) correct colors 
+
+module_comparison[1:3,1:10]
+
+colrs = vector(length=nrow(module_comparison))
+for (i in 1:length(colrs)){
+    if (module_comparison[i,1] == "low"){
+    colrs[i] <- "blue"
+    } 
+    else {
+        if (module_comparison[i,1] == "high"){
+        colrs[i] <- "red"
+        } } }
+
+
+## (2) venn diagram the most numerous modules from each
+
+venn2([
+    set(highDiseaseAllColumns),
+    set(lowDiseaseAllColumns)
+])
+
+p
+## how do we do the venns?
+
+len(lowAdj_communities[0])
+
+len(highAdj_communities[0])
+
+venn2([lowAdj_communities[0], highAdj_communities[0]])
+
+venn2([lowAdj_communities[1], highAdj_communities[1]])
+
+[ len(i) for i in lowAdj_communities ]
+
+venn3([lowAdj_communities[1],
+    highAdj_communities[1],
+    highAdj_communities[2]],
+    set_labels=("low1",
+                "high1",
+                "high2"),
+    set_colors=("blue","red","red")
+                )
+
+## yeah, it kind of looks like modules are breaking up
+
+## update notebook, then writeup. 
